@@ -2,4 +2,3 @@ django
 djangorestframework
 djangorestframework-simplejwt
 drf-yasg
-swagger
