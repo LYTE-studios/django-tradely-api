@@ -103,6 +103,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -143,3 +148,10 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
 }
+
+AUTH_USER_MODEL = "users.CustomUser"
+
+# Brevo API Configuration
+BREVO_API_KEY = 'brevo_api_key'
+EMAIL_SENDER_NAME = 'Tradely'
+EMAIL_SENDER_ADDRESS = 'noreply@website.com'
