@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+sentry-sdk = "*"
 asgiref = "==3.8.1"
 certifi = "==2024.8.30"
 charset-normalizer = "==3.4.0"
