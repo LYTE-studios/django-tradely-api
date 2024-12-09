@@ -11,8 +11,11 @@ User = get_user_model()
 
 
 # Create your views here.
-def authenticate(email, password, server):
-    auth_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/token'
+def authenticate(email, password, server, demo_status=True):
+    if demo_status:
+        auth_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/token'
+    else:
+        auth_url = 'https://live.tradelocker.com/backend-api/auth/jwt/token'
     payload = {
         "email": email,
         "password": password,
@@ -82,8 +85,11 @@ def fetch_account_instruments(api_url_base, access_token, acc_num, locale='en'):
         return None
 
 
-def refresh_access_token(refresh_token):
-    refresh_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/refresh'
+def refresh_access_token(refresh_token, demo_status=True):
+    if demo_status:
+        refresh_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/refresh'
+    else:
+        refresh_url = 'https://live.tradelocker.com/backend-api/auth/jwt/refresh'
     payload = {
         "refreshToken": refresh_token
     }
@@ -106,9 +112,10 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
         email = request.data.get('email')
         password = request.data.get('password')
         server = request.data.get('server')
+        demo_status = request.data.get('demo_status', True)
 
         # Authenticate and get tokens
-        access_token, refresh_token = authenticate(email, password, server)
+        access_token, refresh_token = authenticate(email, password, server, demo_status)
 
         if not access_token:
             return Response({'error': "Invalid credentials or server information."},
@@ -122,6 +129,7 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
                 'email': email,
                 'refresh_token': refresh_token,
                 'server': server,
+                'demo_status': demo_status,
             }
         )
 
@@ -129,7 +137,8 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
             'message': 'Login successful.',
             'refresh_token': refresh_token,
             'email': trader_account.email,
-            'user_id': trader_account.user.id
+            'user_id': trader_account.user.id,
+            'demo_status': trader_account.demo_status,
         }, status=status.HTTP_200_OK)
 
 
@@ -138,17 +147,22 @@ class FetchTradesView(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def fetch_trades(self, request):
-        api_url_base = 'https://demo.tradelocker.com/backend-api/trade/accounts'
-        api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
-        email = request.data.get('email')
-        result_data = []
 
+        email = request.data.get('email')
         # Get the user's trader locker account
         try:
             trader_account = TraderLockerAccount.objects.get(email=email)
             refresh_token = trader_account.refresh_token
+            demo_status = trader_account.demo_status
+            if demo_status:
+                api_url_base = 'https://demo.tradelocker.com/backend-api/trade/accounts'
+                api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
+            else:
+                api_url_base = 'https://live.tradelocker.com/backend-api/trade/accounts'
+                api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
         except TraderLockerAccount.DoesNotExist:
             return Response({'error': "Account does not exist for the given email."}, status=status.HTTP_404_NOT_FOUND)
+        result_data = []
 
         # Refresh the access token using the refresh token
         access_token = refresh_access_token(refresh_token)
