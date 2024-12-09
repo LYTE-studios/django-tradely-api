@@ -11,6 +11,7 @@ class TraderLockerAccount(models.Model):
     email = models.EmailField()
     refresh_token = models.CharField(max_length=1255)
     server = models.CharField(max_length=255)
+    demo_status = models.BooleanField(default=True)  # demo mode status
     def __str__(self):
         return f"{self.user.username}'s Trade Locker Account"
 
