@@ -25,6 +25,10 @@ urllib3 = "==2.2.3"
 python-dotenv = "*"
 stripe = "*"
 django-anymail = "*"
+gunicorn = "20.1.0"
+django-storages = "*"
+boto3 = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
 
