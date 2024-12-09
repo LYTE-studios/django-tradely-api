@@ -20,6 +20,20 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://a40a97ca74ee12e4031292ff477af9f8@o4506789659475968.ingest.us.sentry.io/4508438038446080",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    _experiments={
+        # Set continuous_profiling_auto_start to True
+        # to automatically start the profiler on when
+        # possible.
+        "continuous_profiling_auto_start": True,
+    },
+)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -28,10 +42,38 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-x_sw%8brm-=kg4d)fbpup$d!j!=s6sg7bz!-olora(7)virst9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+AWS_STORAGE_BUCKET_NAME = 'tradely'
+AWS_S3_REGION_NAME = 'us-east-1'
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_VERIFY = True
+AWS_S3_ADDRESSING_STYLE = 'virtual'
+AWS_DEFAULT_ACL = 'public-read'
+STORAGES_DEBUG = True
 
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+
+# Tell Django to use S3 for static files storage
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# Local path for collectstatic to gather files before uploading to S3
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# URL that your static files will be accessible from
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+
+
+ALLOWED_HOSTS = [
+    "api.tradely.lytestudios.be"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.tradely.lytestudios.be',
+    'http://api.tradely.lytestudios.be'
+]
 
 # Application definition
 
@@ -49,7 +91,6 @@ INSTALLED_APPS = [
     'payments',
     'metatrade',
     'trade_locker'
-
 ]
 
 MIDDLEWARE = [
