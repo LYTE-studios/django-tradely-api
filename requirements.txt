@@ -1,8 +1,0 @@
-django
-djangorestframework
-djangorestframework-simplejwt
-drf-yasg
-python-dotenv
-stripe
-django-anymail
-metaapi-cloud-sdk

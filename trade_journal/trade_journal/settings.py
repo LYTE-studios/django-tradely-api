@@ -113,6 +113,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -154,17 +159,13 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
 }
 
+AUTH_USER_MODEL = "users.CustomUser"
+
+# Brevo API Configuration
+BREVO_API_KEY = 'brevo_api_key'
+EMAIL_SENDER_NAME = 'Tradely'
+EMAIL_SENDER_ADDRESS = 'hello@tradely.io'
+
 STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = 'your_stripe_webhook_secret'
-
-# settings.py
-
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # Replace with your email provider's SMTP server
-EMAIL_PORT = 587  # For TLS
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'admin@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'password'  # Your email password or app password
-DEFAULT_FROM_EMAIL = 'admin@gmail.com'  # The default 'from' email address
-
