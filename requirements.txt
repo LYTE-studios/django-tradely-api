@@ -16,3 +16,6 @@ sqlparse==0.5.2
 typing_extensions==4.12.2
 uritemplate==4.1.1
 urllib3==2.2.3
+python-dotenv
+stripe
+django-anymail

@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -41,6 +46,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_yasg',
     'users',
+    'payments',
+
 ]
 
 MIDDLEWARE = [
@@ -51,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'payments.middleware.EmailServiceMiddleware'
 ]
 
 ROOT_URLCONF = 'trade_journal.urls'
@@ -154,4 +162,8 @@ AUTH_USER_MODEL = "users.CustomUser"
 # Brevo API Configuration
 BREVO_API_KEY = 'brevo_api_key'
 EMAIL_SENDER_NAME = 'Tradely'
-EMAIL_SENDER_ADDRESS = 'noreply@website.com'
+EMAIL_SENDER_ADDRESS = 'hello@tradely.io'
+
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = 'your_stripe_webhook_secret'
