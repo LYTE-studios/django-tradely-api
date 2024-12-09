@@ -1,24 +1,23 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from .models import MetaTraderAccount, Trade
 from .serializers import MetaTraderAccountSerializer
 from metaapi_cloud_sdk import MetaApi, MetaStats
 import asyncio
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     serializer_class = MetaTraderAccountSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @action(detail=True, methods=['post'])
     def login_account(self, request):
-        username = request.GET.get('username')
-        password = request.GET.get('password')
-        server_name = request.GET.get('server_name')
-        api_token = request.GET.get('api_token')
+        api_token = request.data.get('api_token')
 
         async def connect_metatrade_login():
             api = MetaApi(api_token)
@@ -31,21 +30,8 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                         break
 
                 if not account:
-                    print('Adding MT4 account to MetaApi')
-                    account = await api.metatrader_account_api.create_account(
-                        {
-                            'name': 'Test account',
-                            'type': 'cloud',
-                            'login': username,
-                            'password': password,
-                            'server': server_name,
-                            'platform': 'mt4',
-                            'magic': 1000,
-                        }
-                    )
-                    return account
+                    print('Token invalid or no cloud account found')
                 else:
-                    print('MT4 account already added to MetaApi')
                     return account
 
             except Exception as e:
@@ -58,7 +44,18 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
 
         # Here you would typically process and save the trades to your database
         # For this example, we're just returning them
-        return Response(login_status)
+        user = request.user
+        trader_account, created = MetaTraderAccount.objects.update_or_create(
+            user=user,
+            defaults={
+                'api_token': api_token,
+            }
+        )
+        return Response({
+            'message': 'Login successful.',
+            'api_token': api_token,
+            'user_id': trader_account.user.id
+        }, status=status.HTTP_200_OK)
 
 
 class FetchTradesView(viewsets.ModelViewSet):
@@ -68,8 +65,12 @@ class FetchTradesView(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def fetch_trades(self, request, pk=None):
 
-        api_token = request.GET.get('api_token')
-        account_id = request.GET.get('account_id')
+        # Get the user's trader locker account
+        try:
+            trader_account = MetaTraderAccount.objects.get(id=request.user.id)
+            api_token = trader_account.api_token
+        except MetaTraderAccount.DoesNotExist:
+            return Response({'error': "Account does not exist for the given email."}, status=status.HTTP_404_NOT_FOUND)
 
         async def connect_and_fetch_trades():
             api = MetaApi(api_token)
@@ -90,7 +91,7 @@ class FetchTradesView(viewsets.ModelViewSet):
             if account.connection_status != 'CONNECTED':
                 await account.wait_connected()
             try:
-                open_trades = await meta_stats.get_account_open_trades(account_id)
+                open_trades = await meta_stats.get_account_open_trades(account.id)
                 user_id = request.user.id
                 for trade in open_trades['trades']:
                     # Extract trade details

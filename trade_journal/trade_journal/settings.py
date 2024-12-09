@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'drf_yasg',
     'users',
     'payments',
-    'metatrade'
+    'metatrade',
+    'trade_locker'
 
 ]
 
