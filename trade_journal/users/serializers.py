@@ -23,6 +23,16 @@ class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
+
+from .models import CustomUser
+
+
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth']  # Add other fields as needed
+
+
 class TradeAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeAccount
@@ -35,18 +45,19 @@ class TradeAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Balance cannot be negative.")
         return value
 
+
 class ManualTradeSerializer(serializers.ModelSerializer):
     total_amount = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         read_only=True
     )
 
     class Meta:
         model = ManualTrade
         fields = [
-            'id', 'account', 'trade_type', 'symbol', 
-            'quantity', 'price', 'total_amount', 
+            'id', 'account', 'trade_type', 'symbol',
+            'quantity', 'price', 'total_amount',
             'trade_date', 'notes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'total_amount']
@@ -55,24 +66,25 @@ class ManualTradeSerializer(serializers.ModelSerializer):
         # Validate trade data
         if data.get('quantity', 0) <= 0:
             raise serializers.ValidationError("Quantity must be greater than 0.")
-        
+
         if data.get('price', 0) <= 0:
             raise serializers.ValidationError("Price must be greater than 0.")
-        
+
         # Ensure the trade account belongs to the current user
         account = data.get('account')
         if not account or account.user != self.context['request'].user:
             raise serializers.ValidationError("You can only create trades for your own accounts.")
-        
+
         return data
 
     def create(self, validated_data):
         # Calculate total amount during creation
         validated_data['total_amount'] = (
-            Decimal(str(validated_data['quantity'])) * 
-            Decimal(str(validated_data['price']))
+                Decimal(str(validated_data['quantity'])) *
+                Decimal(str(validated_data['price']))
         )
         return super().create(validated_data)
+
 
 class TradeStatisticsSerializer(serializers.Serializer):
     """
@@ -82,6 +94,7 @@ class TradeStatisticsSerializer(serializers.Serializer):
     total_invested = serializers.DecimalField(max_digits=15, decimal_places=2)
     average_trade_size = serializers.DecimalField(max_digits=15, decimal_places=2)
     unique_symbols = serializers.ListField(child=serializers.CharField())
+
 
 class SymbolPerformanceSerializer(serializers.Serializer):
     """
@@ -96,6 +109,7 @@ class SymbolPerformanceSerializer(serializers.Serializer):
         child=serializers.IntegerField()
     )
 
+
 class TradeNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeNote
@@ -104,7 +118,7 @@ class TradeNoteSerializer(serializers.ModelSerializer):
             'user': {'read_only': True},
             'trade': {'required': False}
         }
-    
+
     def validate(self, data):
         # If no trade is provided during update, keep the existing trade
         if not data.get('trade') and not data.get('note_date'):
@@ -115,4 +129,3 @@ class TradeNoteSerializer(serializers.ModelSerializer):
         # Ensure user is not changed during update
         validated_data.pop('user', None)
         return super().update(instance, validated_data)
-    

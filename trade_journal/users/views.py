@@ -1,24 +1,20 @@
 from rest_framework import generics, permissions, viewsets, status
 from rest_framework_simplejwt.tokens import AccessToken
 from .serializers import (
-    UserRegistrationSerializer, 
-    UserLoginSerializer, 
-    TradeAccountSerializer, 
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    TradeAccountSerializer,
     ManualTradeSerializer,
     TradeNoteSerializer
 )
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
+from .serializers import CustomUserSerializer
+from rest_framework.exceptions import PermissionDenied
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
 from rest_framework.exceptions import ValidationError
 from .email_service import BrevoEmailService
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField, Avg
-from django.db.models.functions import Coalesce
-from django.db.models import Max, Min
-from decimal import Decimal
 from .email_service import brevo_email_service
 
 
@@ -43,16 +39,46 @@ class UserLoginView(generics.GenericAPIView):
             return Response({'access': str(token)})
         return Response({'detail': 'Invalid credentials'}, status=401)
 
+
+class CustomUserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Check if the user is an admin
+        if self.request.user.is_superuser or self.request.user.is_staff:
+            return CustomUser.objects.all()
+        # Regular users can only access their own profile
+        return CustomUser.objects.filter(pk=self.request.user.pk)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        if not request.user.is_superuser and not request.user.is_staff:
+            if request.user.pk != kwargs['pk']:
+                raise PermissionDenied("You do not have permission to update this user.")
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_superuser and not request.user.is_staff:
+            if request.user.pk != kwargs['pk']:
+                raise PermissionDenied("You do not have permission to delete this user.")
+        return super().destroy(request, *args, **kwargs)
+
+
 class BaseModelViewSet(viewsets.ModelViewSet):
     """
     Enhanced base ViewSet with consistent response formatting
     """
+
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instance = self.perform_create(serializer)
-            
+
             return Response({
                 'success': True,
                 'data': serializer.data
@@ -95,6 +121,7 @@ class BaseModelViewSet(viewsets.ModelViewSet):
                 'errors': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
 class TradeAccountViewSet(BaseModelViewSet):
     serializer_class = TradeAccountSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -104,6 +131,7 @@ class TradeAccountViewSet(BaseModelViewSet):
 
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
+
 
 class ManualTradeViewSet(BaseModelViewSet):
     serializer_class = ManualTradeSerializer
@@ -118,21 +146,24 @@ class ManualTradeViewSet(BaseModelViewSet):
         account_id = serializer.validated_data.get('account')
         if not TradeAccount.objects.filter(id=account_id.id, user=self.request.user).exists():
             raise ValidationError("You can only add trades to your own accounts.")
-        
+
         return serializer.save(user=self.request.user)
+
 
 def some_view(request):
     email_service = BrevoEmailService()
     email_service.send_registration_confirmation(
-        user_email='user@example.com', 
+        user_email='user@example.com',
         username='JohnDoe'
     )
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal
 from django.utils import timezone
+
 
 class ComprehensiveTradeStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -178,6 +209,7 @@ class ComprehensiveTradeStatisticsView(APIView):
             'monthly_trade_summary': list(monthly_trade_summary.values())
         })
 
+
 class TradeAccountPerformanceView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -202,7 +234,8 @@ class TradeAccountPerformanceView(APIView):
         return Response({
             'account_performances': account_performances
         })
-    
+
+
 class TradeNoteViewSet(viewsets.ModelViewSet):
     queryset = TradeNote.objects.all()
     serializer_class = TradeNoteSerializer
@@ -218,17 +251,16 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-
 class UserRegistrationView(APIView):
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            
+
             # Send registration email
             try:
                 success, _ = brevo_email_service.send_registration_email(
-                    user_email=user.email, 
+                    user_email=user.email,
                     username=user.username
                 )
                 if not success:
@@ -236,7 +268,6 @@ class UserRegistrationView(APIView):
                     logger.warning(f"Failed to send registration email to {user.email}")
             except Exception as e:
                 logger.error(f"Email service error: {e}")
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
