@@ -6,6 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TraderLockerAccount  # Make sure to include the model
 from django.contrib.auth import get_user_model
+from metatrade.utils import encrypt_password, decrypt_password, KEY
+
 
 User = get_user_model()
 
@@ -127,6 +129,8 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
             user=user,
             defaults={
                 'email': email,
+                'password': encrypt_password(password),
+                'key_code': KEY,
                 'refresh_token': refresh_token,
                 'server': server,
                 'demo_status': demo_status,

@@ -8,7 +8,9 @@ User = get_user_model()
 
 class TraderLockerAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    email = models.EmailField()
+    email = models.EmailField(unique=True, null=True)
+    password = models.TextField(null=True)
+    key_code = models.TextField(null=True)
     refresh_token = models.CharField(max_length=1255)
     server = models.CharField(max_length=255)
     demo_status = models.BooleanField(default=True)  # demo mode status
