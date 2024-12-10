@@ -22,6 +22,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         server_name = request.data.get('server_name')
         username = request.data.get('username')
         password = request.data.get('password')
+        account_name = request.data.get('account_name')
 
         if not api_token or not server_name or not username or not password:
             return Response({'error': 'All fields are required: api_token, server_name, username, and password.'},
@@ -76,6 +77,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 'password': encrypt_password(password),
                 'key_code': KEY,
                 'server': server_name,
+                'account_name': account_name,
             }
         )
         return Response({
