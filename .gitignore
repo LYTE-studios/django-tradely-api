@@ -164,6 +164,8 @@ cython_debug/
 /notifications/.env
 /notifications/mail_service/credentials.json
 notifications/mail_service/uploads/*
-/trade_journal/trade_journal/__pycache__/
-/trade_journal/users/__pycache__/
-/trade_journal/users/migrations/__pycache__/
+__pycache__/
+.pyc
+db.sqlite3
+my_secrets.py
+.DS_Store

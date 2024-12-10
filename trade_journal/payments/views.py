@@ -11,7 +11,6 @@ from django.conf import settings
 from .models import Email  # Import your Email model
 from .email_service import get_dynamic_email_backend
 from anymail.message import AnymailMessage
-
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 

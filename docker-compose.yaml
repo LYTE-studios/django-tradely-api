@@ -1,0 +1,5 @@
+services:
+  api:
+    network_mode: "host"
+    build: trade_journal
+    restart: on-failure

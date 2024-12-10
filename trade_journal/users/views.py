@@ -21,6 +21,8 @@ from django.db.models import Max, Min
 from decimal import Decimal
 from .email_service import brevo_email_service
 
+class HelloThereView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
 
 class UserRegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()  # or your own user model
@@ -121,12 +123,6 @@ class ManualTradeViewSet(BaseModelViewSet):
         
         return serializer.save(user=self.request.user)
 
-def some_view(request):
-    email_service = BrevoEmailService()
-    email_service.send_registration_confirmation(
-        user_email='user@example.com', 
-        username='JohnDoe'
-    )
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
