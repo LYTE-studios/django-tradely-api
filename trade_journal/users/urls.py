@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import UserRegisterView, UserLoginView, CustomUserViewSet
+from .views import UserRegisterView, UserLoginView, CustomUserViewSet, HelloThereView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -27,11 +27,25 @@ urlpatterns = [
     # Authentication routes
     path('register/', UserRegisterView.as_view(), name='register'),
     path('login/', UserLoginView.as_view(), name='login'),
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # For obtaining access and refresh tokens
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # For refreshing tokens
-
+    path('hello-there', HelloThereView.as_view(), name='hello-there'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Trade account routes
+    path('api/trade-accounts/', TradeAccountViewSet.as_view({'get': 'list', 'post': 'create'}), name='trade-account-list'),
+    path('api/trade-accounts/<int:pk>/', TradeAccountViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='trade-account-detail'),
+    path('api/manual-trades/', ManualTradeViewSet.as_view({'get': 'list', 'post': 'create'}), name='manual-trade-list'),
+    path('api/manual-trades/<int:pk>/', ManualTradeViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }),),
     path('api/statistics/', ComprehensiveTradeStatisticsView.as_view(), name='comprehensive-trade-statistics'),
     path('api/account-performance/', TradeAccountPerformanceView.as_view(), name='trade-account-performance'),
 
