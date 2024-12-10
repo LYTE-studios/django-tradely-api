@@ -31,6 +31,7 @@ django-storages = "*"
 boto3 = "*"
 psycopg2-binary = "*"
 metaapi_cloud_sdk = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 

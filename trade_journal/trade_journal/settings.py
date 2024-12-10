@@ -75,6 +75,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://api.tradely.lytestudios.be'
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -86,6 +88,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'corsheaders',
     'drf_yasg',
     'users',
     'payments',
@@ -101,7 +104,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'payments.middleware.EmailServiceMiddleware'
+    'payments.middleware.EmailServiceMiddleware',
+    'corsheaders.middleware.CorsMiddleware',    
+    'django.middleware.common.CommonMiddleware',
 ]
 
 ROOT_URLCONF = 'trade_journal.urls'

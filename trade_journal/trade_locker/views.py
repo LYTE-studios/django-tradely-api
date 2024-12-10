@@ -123,6 +123,7 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
 
         # Get or create a TraderLockerAccount linked to the user
         user, created = User.objects.get_or_create(email=email)  # Or get user by email and handle accordingly
+        
         trader_account, created = TraderLockerAccount.objects.update_or_create(
             user=user,
             defaults={
