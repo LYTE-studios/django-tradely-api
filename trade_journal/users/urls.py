@@ -13,7 +13,8 @@ from .views import (
     TradeAccountPerformanceView,
     TradeNoteViewSet,
     HelloThereView,
-    UserGetAllTradeAccountsView
+    UserGetAllTradeAccountsView,
+    UserGetAllTradesView
 )
 
 # Create a router for the viewsets
@@ -58,7 +59,8 @@ urlpatterns = [
         'delete': 'destroy'
     }), name='tradenote-detail'),
 
-    path('get_all_trades/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
+    path('get_all_accounts/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
+    path('get_all_trades/', UserGetAllTradesView.as_view(), name='get-all-trades'),
 
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),

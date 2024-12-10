@@ -274,6 +274,42 @@ def refresh_access_token(refresh_token, demo_status=True):
         return None
 
 
+def fetch_orders_history(api_url_orders_history, access_token, acc_num):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'accept': 'application/json',
+        'accNum': str(acc_num)
+    }
+    try:
+        response = requests.get(api_url_orders_history, headers=headers)
+        if response.status_code == 200:
+            return response.json().get('d', {}).get('ordersHistory', [])
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        return None
+
+
+# Function to fetch instruments available for trading
+def fetch_account_instruments(api_url_base, access_token, acc_num, locale='en'):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'accept': 'application/json',
+        'accNum': str(acc_num)
+    }
+    params = {
+        'locale': locale
+    }
+    try:
+        response = requests.get(api_url_base, headers=headers, params=params)
+        if response.status_code == 200:
+            return response.json().get('d', {}).get('instruments', [])
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        return None
+
+
 class UserGetAllTradeAccountsView(APIView):
 
     async def meta_api_synchronization(self, meta_account):
@@ -342,6 +378,11 @@ class UserGetAllTradeAccountsView(APIView):
 
     def get(self, request):
         try:
+            user_data = {
+                "id": request.user.id,
+                "username": request.user.username,
+                "email": request.user.email,
+            }
             meta_trade_accounts = MetaTraderAccount.objects.filter(user=request.user)
             trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
             meta_account_info_list = []
@@ -365,8 +406,103 @@ class UserGetAllTradeAccountsView(APIView):
 
             # Build a response structure
             response_data = {
+                'user': user_data,
                 'meta_trade_accounts': meta_account_info_list,
                 'trade_locker_accounts': trade_account_info_list
+            }
+
+            return Response(response_data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+
+class UserGetAllTradesView(APIView):
+
+    def get(self, request):
+        try:
+            user_data = {
+                "id": request.user.id,
+                "username": request.user.username,
+                "email": request.user.email,
+            }
+            meta_trade_accounts = MetaTraderAccount.objects.filter(user=request.user)
+            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
+            meta_trade_list = []
+            trade_locker_list = []
+            for meta_account in meta_trade_accounts:
+                api_token = meta_account.api_token
+
+                async def connect_and_fetch_trades():
+                    api = MetaApi(api_token)
+                    meta_stats = MetaStats(api_token)
+                    accounts = await api.metatrader_account_api.get_accounts_with_infinite_scroll_pagination()
+                    account = None
+                    for item in accounts:
+                        if item.type.startswith('cloud'):
+                            account = item
+                            break
+                    if not account:
+                        return "account does not exist or is not of type cloud"
+                    if account.state != 'DEPLOYED':
+                        await account.deploy()
+                    else:
+                        print('Account already deployed')
+                    print('Waiting for API server to connect to broker (may take couple of minutes)')
+                    if account.connection_status != 'CONNECTED':
+                        await account.wait_connected()
+                    try:
+                        open_trades = await meta_stats.get_account_open_trades(account.id)
+                        return open_trades
+                    except Exception as e:
+                        return str(e)
+
+                trades = asyncio.run(connect_and_fetch_trades())
+                meta_trade_list.append(trades)
+
+            for trade_account in trade_locker_accounts:
+                trade_locker_info = {}
+                try:
+                    refresh_token = trade_account.refresh_token
+                    demo_status = trade_account.demo_status
+                    if demo_status:
+                        api_url_base = 'https://demo.tradelocker.com/backend-api/trade/accounts'
+                        api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
+                    else:
+                        api_url_base = 'https://live.tradelocker.com/backend-api/trade/accounts'
+                        api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
+                except TraderLockerAccount.DoesNotExist:
+                    return Response({'error': "Account does not exist for the given email."},
+                                    status=status.HTTP_404_NOT_FOUND)
+
+                # Refresh the access token using the refresh token
+                access_token = refresh_access_token(refresh_token)
+
+                # Fetch all account numbers
+                account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
+                if not account_numbers:
+                    return Response(
+                        {
+                            'error': f"Failed to fetch account numbers for user {trade_account.email}. Skipping to next user"},
+                        status=status.HTTP_401_UNAUTHORIZED)
+
+                for account in account_numbers:
+                    acc_num = account.get('accNum')
+                    acc_id = account.get('id')
+
+                    # Fetch orders history for the account
+                    api_url_orders_history_base = f'{api_url_base}/{acc_id}/ordersHistory'
+                    orders_history = fetch_orders_history(api_url_orders_history_base, access_token, acc_num)
+                    trade_locker_info["orders_history"] = orders_history
+                    # Fetch instruments available for trading
+                    api_url_instruments_base = f'{api_url_base}/{acc_id}/instruments'
+                    account_instruments = fetch_account_instruments(api_url_instruments_base, access_token, acc_num)
+                    trade_locker_info["instruments"] = account_instruments
+                trade_locker_list.append(trade_locker_info)
+            # Build a response structure
+            response_data = {
+                'user': user_data,
+                'meta_trade_accounts': meta_trade_list,
+                'trade_locker_accounts': trade_locker_list
             }
 
             return Response(response_data, status=200)
