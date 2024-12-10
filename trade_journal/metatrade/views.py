@@ -23,6 +23,10 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         username = request.data.get('username')
         password = request.data.get('password')
 
+        if not api_token or not server_name or not username or not password:
+            return Response({'error': 'All fields are required: api_token, server_name, username, and password.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         async def connect_metatrade_login():
             api = MetaApi(api_token)
             try:
@@ -118,7 +122,7 @@ class FetchTradesView(viewsets.ModelViewSet):
             try:
                 open_trades = await meta_stats.get_account_open_trades(account.id)
                 user_id = request.user.id
-                for trade in open_trades['trades']:
+                for trade in open_trades:
                     # Extract trade details
                     trade_instance = Trade(
                         user_id=user_id,

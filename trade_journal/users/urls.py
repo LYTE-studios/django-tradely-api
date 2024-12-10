@@ -1,10 +1,8 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import UserRegisterView, UserLoginView, CustomUserViewSet, HelloThereView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register(r'users', CustomUserViewSet)
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserRegisterView,
@@ -13,7 +11,9 @@ from .views import (
     ManualTradeViewSet,
     ComprehensiveTradeStatisticsView,
     TradeAccountPerformanceView,
-    TradeNoteViewSet
+    TradeNoteViewSet,
+    HelloThereView,
+    UserGetAllTradeAccountsView
 )
 
 # Create a router for the viewsets
@@ -57,6 +57,8 @@ urlpatterns = [
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='tradenote-detail'),
+
+    path('get_all_trades/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
 
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),

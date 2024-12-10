@@ -1,9 +1,9 @@
 from rest_framework import generics, permissions, viewsets, status
 from rest_framework_simplejwt.tokens import AccessToken
 from .serializers import (
-    UserRegistrationSerializer, 
-    UserLoginSerializer, 
-    TradeAccountSerializer, 
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    TradeAccountSerializer,
     ManualTradeSerializer,
     TradeNoteSerializer
 )
@@ -12,17 +12,21 @@ from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
 from rest_framework.exceptions import ValidationError
-from .email_service import BrevoEmailService
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField, Avg
-from django.db.models.functions import Coalesce
-from django.db.models import Max, Min
 from decimal import Decimal
 from .email_service import brevo_email_service
+from metatrade.models import MetaTraderAccount
+from trade_locker.models import TraderLockerAccount
+from metaapi_cloud_sdk import MetaApi, MetaStats
+from cryptography.fernet import Fernet
+import asyncio
+import requests
+
 
 class HelloThereView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
+
 
 class UserRegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()  # or your own user model
@@ -45,16 +49,18 @@ class UserLoginView(generics.GenericAPIView):
             return Response({'access': str(token)})
         return Response({'detail': 'Invalid credentials'}, status=401)
 
+
 class BaseModelViewSet(viewsets.ModelViewSet):
     """
     Enhanced base ViewSet with consistent response formatting
     """
+
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instance = self.perform_create(serializer)
-            
+
             return Response({
                 'success': True,
                 'data': serializer.data
@@ -97,6 +103,7 @@ class BaseModelViewSet(viewsets.ModelViewSet):
                 'errors': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
 class TradeAccountViewSet(BaseModelViewSet):
     serializer_class = TradeAccountSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -106,6 +113,7 @@ class TradeAccountViewSet(BaseModelViewSet):
 
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
+
 
 class ManualTradeViewSet(BaseModelViewSet):
     serializer_class = ManualTradeSerializer
@@ -120,15 +128,9 @@ class ManualTradeViewSet(BaseModelViewSet):
         account_id = serializer.validated_data.get('account')
         if not TradeAccount.objects.filter(id=account_id.id, user=self.request.user).exists():
             raise ValidationError("You can only add trades to your own accounts.")
-        
+
         return serializer.save(user=self.request.user)
 
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from decimal import Decimal
-from django.utils import timezone
 
 class ComprehensiveTradeStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -174,6 +176,7 @@ class ComprehensiveTradeStatisticsView(APIView):
             'monthly_trade_summary': list(monthly_trade_summary.values())
         })
 
+
 class TradeAccountPerformanceView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -198,7 +201,8 @@ class TradeAccountPerformanceView(APIView):
         return Response({
             'account_performances': account_performances
         })
-    
+
+
 class TradeNoteViewSet(viewsets.ModelViewSet):
     queryset = TradeNote.objects.all()
     serializer_class = TradeNoteSerializer
@@ -214,17 +218,16 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-
 class UserRegistrationView(APIView):
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            
+
             # Send registration email
             try:
                 success, _ = brevo_email_service.send_registration_email(
-                    user_email=user.email, 
+                    user_email=user.email,
                     username=user.username
                 )
                 if not success:
@@ -232,7 +235,140 @@ class UserRegistrationView(APIView):
                     logger.warning(f"Failed to send registration email to {user.email}")
             except Exception as e:
                 logger.error(f"Email service error: {e}")
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+def fetch_all_account_numbers(api_url, access_token):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'accept': 'application/json'
+    }
+    try:
+        response = requests.get(api_url, headers=headers)
+        if response.status_code == 200:
+            return response.json().get('accounts', [])
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        return None
+
+
+def refresh_access_token(refresh_token, demo_status=True):
+    if demo_status:
+        refresh_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/refresh'
+    else:
+        refresh_url = 'https://live.tradelocker.com/backend-api/auth/jwt/refresh'
+    payload = {
+        "refreshToken": refresh_token
+    }
+    try:
+        response = requests.post(refresh_url, json=payload)
+        if response.status_code == 201:
+            auth_data = response.json()
+            return auth_data.get('accessToken', None)
+        else:
+            return None
+    except requests.exceptions.RequestException as e:
+        return None
+
+
+class UserGetAllTradeAccountsView(APIView):
+
+    async def meta_api_synchronization(self, meta_account):
+        token = meta_account.api_token
+        login = meta_account.email
+        temp_password = meta_account.password
+        key_code = meta_account.key_code
+        cipher = Fernet(key_code)
+        password = cipher.decrypt(temp_password.encode()).decode()
+        server_name = meta_account.server
+        api = MetaApi(token)
+        try:
+            # Add test MetaTrader account
+            accounts = await api.metatrader_account_api.get_accounts_with_infinite_scroll_pagination()
+            account = None
+            for item in accounts:
+                if item.type.startswith('cloud'):
+                    account = item
+                    break
+            if not account:
+                print('Adding MT4 account to MetaApi')
+                account = await api.metatrader_account_api.create_account(
+                    {
+                        'name': 'Test account',
+                        'type': 'cloud',
+                        'login': login,
+                        'password': password,
+                        'server': server_name,
+                        'platform': 'mt4',
+                        'magic': 1000,
+                    }
+                )
+            else:
+                print('MT4 account already added to MetaApi')
+
+            await account.deploy()
+            await account.wait_connected()
+
+            # connect to MetaApi API
+            connection = account.get_rpc_connection()
+            await connection.connect()
+            terminal_state = await connection.wait_synchronized()
+            #
+            account_information = terminal_state.get_account_information()
+            await connection.close()
+            await account.undeploy()
+            return account_information
+
+        except Exception as err:
+            # process errors
+            if hasattr(err, 'details'):
+                # returned if the server file for the specified server name has not been found
+                # recommended to check the server name or create the account using a provisioning profile
+                if err.details == 'E_SRV_NOT_FOUND':
+                    print(err)
+                # returned if the server has failed to connect to the broker using your credentials
+                # recommended to check your login and password
+                elif err.details == 'E_AUTH':
+                    print(err)
+                # returned if the server has failed to detect the broker settings
+                # recommended to try again later or create the account using a provisioning profile
+                elif err.details == 'E_SERVER_TIMEZONE':
+                    print(err)
+            print(api.format_error(err))
+        exit()
+
+    def get(self, request):
+        try:
+            meta_trade_accounts = MetaTraderAccount.objects.filter(user=request.user)
+            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
+            meta_account_info_list = []
+            trade_account_info_list = []
+            for meta_account in meta_trade_accounts:
+                account_info = asyncio.run(self.meta_api_synchronization(meta_account))
+                meta_account_info_list.append(account_info)
+
+            for trade_account in trade_locker_accounts:
+                refresh_token = trade_account.refresh_token
+                demo_status = trade_account.demo_status
+                if demo_status:
+                    api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
+                else:
+                    api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
+                access_token = refresh_access_token(refresh_token)
+
+                account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
+                for account in account_numbers:
+                    trade_account_info_list.append(account)
+
+            # Build a response structure
+            response_data = {
+                'meta_trade_accounts': meta_account_info_list,
+                'trade_locker_accounts': trade_account_info_list
+            }
+
+            return Response(response_data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

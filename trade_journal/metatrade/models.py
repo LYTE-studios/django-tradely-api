@@ -9,7 +9,7 @@ class MetaTraderAccount(models.Model):
     api_token = models.CharField(max_length=255)
     email = models.EmailField(unique=True, null=True)
     password = models.TextField(null=True)
-    key_code = models.TextField(null=True)
+    key_code = models.BinaryField(null=True)
     server = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

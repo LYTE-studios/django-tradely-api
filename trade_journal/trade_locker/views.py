@@ -124,8 +124,8 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_401_UNAUTHORIZED)
 
         # Get or create a TraderLockerAccount linked to the user
-        user, created = User.objects.get_or_create(email=email)  # Or get user by email and handle accordingly
-        
+        # user, created = User.objects.get_or_create(email=email)  # Or get user by email and handle accordingly
+        user = request.user
         trader_account, created = TraderLockerAccount.objects.update_or_create(
             user=user,
             defaults={
