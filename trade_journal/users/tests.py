@@ -56,7 +56,66 @@ class UserTests(APITestCase):
         refresh_response = self.client.post(refresh_url, {'refresh': refresh_token}, format='json')
         self.assertEqual(refresh_response.status_code, status.HTTP_200_OK)
         self.assertIn('access', refresh_response.data)
-        
+
+
+class UserProfileTests(APITestCase):
+
+    def setUp(self):
+        self.admin_user = User.objects.create_user(username='adminuser', email='admin@example.com', password='password', is_superuser=True)
+        self.regular_user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+        self.client.login(username='adminuser', password='password')
+
+    def test_admin_can_create_user_profile(self):
+        url = reverse('customuser-list')
+        data = {'username': 'anotheruser', 'email': 'another@example.com', 'password': 'password'}
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_regular_user_can_create_own_profile(self):
+        self.client.logout()
+        self.client.login(username='testuser', password='password')
+        url = reverse('customuser-list')
+        data = {'username': 'myuser', 'email': 'myuser@example.com', 'password': 'password'}
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_regular_user_cannot_view_all_users(self):
+        self.client.logout()
+        self.client.login(username='testuser', password='password')
+        url = reverse('customuser-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, 'testuser')
+        self.assertNotContains(response, 'adminuser')
+
+    def test_regular_user_can_update_own_profile(self):
+        self.client.logout()
+        self.client.login(username='testuser', password='password')
+        url = reverse('customuser-detail', args=[self.regular_user.id])
+        data = {'username': 'updateduser'}
+        response = self.client.patch(url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_regular_user_cannot_update_others_profile(self):
+        self.client.logout()
+        self.client.login(username='testuser', password='password')
+        url = reverse('customuser-detail', args=[self.admin_user.id])
+        data = {'username': 'updateduser'}
+        response = self.client.patch(url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete_user_profile(self):
+        url = reverse('customuser-detail', args=[self.regular_user.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_regular_user_cannot_delete_others_profile(self):
+        self.client.logout()
+        self.client.login(username='testuser', password='password')
+        url = reverse('customuser-detail', args=[self.admin_user.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 class TradeAccountTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -105,8 +164,8 @@ class TradeStatisticsViewTests(TestCase):
     def setUp(self):
         # Create a test user
         self.user = CustomUser.objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
+            username='testuser',
+            email='test@example.com',
             password='testpass123'
         )
 
@@ -160,7 +219,7 @@ class TradeStatisticsViewTests(TestCase):
         self.assertIn('overall_statistics', data)
         self.assertEqual(data['overall_statistics']['total_trades'], 2)
         self.assertEqual(
-            data['overall_statistics']['total_invested'], 
+            data['overall_statistics']['total_invested'],
             Decimal('7500.00')
         )
 
@@ -191,7 +250,7 @@ class TradeStatisticsViewTests(TestCase):
         self.assertEqual(account_perf['account_id'], self.account.id)
         self.assertEqual(account_perf['total_trades'], 2)
         self.assertEqual(
-            account_perf['total_traded_amount'], 
+            account_perf['total_traded_amount'],
             Decimal('7500.00')
         )
 class TradeNoteTests(APITestCase):
@@ -201,12 +260,12 @@ class TradeNoteTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.account = TradeAccount.objects.create(user=self.user, name='Test Account', balance=5000)
         self.trade = ManualTrade.objects.create(
-            user=self.user, 
-            account=self.account, 
-            trade_type='BUY', 
-            symbol='AAPL', 
-            quantity=10, 
-            price=150.00, 
+            user=self.user,
+            account=self.account,
+            trade_type='BUY',
+            symbol='AAPL',
+            quantity=10,
+            price=150.00,
             trade_date=timezone.now()
         )
 
@@ -260,7 +319,7 @@ class TradeNoteTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         note.refresh_from_db()
         self.assertEqual(note.trade_note, 'Updated test trade note')
-        
+
     def test_delete_trade_note(self):
         note = TradeNote.objects.create(user=self.user, trade=self.trade, trade_note='Test trade note')
         response = self.client.delete(f'/api/users/trade-notes/{note.id}/', format='json')
@@ -271,7 +330,7 @@ class BrevoEmailServiceTest(TestCase):
     def setUp(self):
         self.email_service = BrevoEmailService()
         self.user = User.objects.create_user(
-            username='testuser', 
+            username='testuser',
             email='test@example.com'
         )
 
@@ -282,7 +341,7 @@ class BrevoEmailServiceTest(TestCase):
         mock_post.return_value.raise_for_status.return_value = None
 
         success, response = self.email_service.send_registration_email(
-            user_email=self.user.email, 
+            user_email=self.user.email,
             username=self.user.username
         )
 
@@ -296,7 +355,7 @@ class BrevoEmailServiceTest(TestCase):
         mock_post.return_value.raise_for_status.return_value = None
 
         success, response = self.email_service.send_payment_confirmation_email(
-            user_email=self.user.email, 
+            user_email=self.user.email,
             username=self.user.username,
             amount=100.00
         )

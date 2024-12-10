@@ -6,6 +6,8 @@ from django.conf import settings
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+
 
 class TradeAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_accounts')
@@ -16,6 +18,7 @@ class TradeAccount(models.Model):
 
     def __str__(self):
         return f"{self.name} - ${self.balance}"
+
 
 class ManualTrade(models.Model):
     TRADE_TYPES = [
@@ -32,7 +35,7 @@ class ManualTrade(models.Model):
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)
     trade_date = models.DateTimeField()
     notes = models.TextField(blank=True, null=True)
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -44,7 +47,7 @@ class ManualTrade(models.Model):
 
     def __str__(self):
         return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.price}"
-    
+
 
 class TradeNote(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_notes')

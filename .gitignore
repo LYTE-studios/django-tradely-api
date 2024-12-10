@@ -168,3 +168,4 @@ __pycache__/
 .pyc
 db.sqlite3
 my_secrets.py
+.DS_Store
