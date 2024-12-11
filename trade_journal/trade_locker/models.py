@@ -8,6 +8,7 @@ User = get_user_model()
 
 class TraderLockerAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    account_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True, null=True)
     password = models.TextField(null=True)
     key_code = models.BinaryField(null=True)

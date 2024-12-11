@@ -355,7 +355,6 @@ class UserGetAllTradeAccountsView(APIView):
             connection = account.get_rpc_connection()
             await connection.connect()
             terminal_state = await connection.wait_synchronized()
-            #
             account_information = terminal_state.get_account_information()
             await connection.close()
             await account.undeploy()
@@ -392,6 +391,7 @@ class UserGetAllTradeAccountsView(APIView):
             trade_account_info_list = []
             for meta_account in meta_trade_accounts:
                 account_info = asyncio.run(self.meta_api_synchronization(meta_account))
+                account_info['account_name'] = meta_account.account_name
                 meta_account_info_list.append(account_info)
 
             for trade_account in trade_locker_accounts:
@@ -405,6 +405,7 @@ class UserGetAllTradeAccountsView(APIView):
 
                 account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
                 for account in account_numbers:
+                    account['account_name'] = trade_account.account_name
                     trade_account_info_list.append(account)
 
             # Build a response structure

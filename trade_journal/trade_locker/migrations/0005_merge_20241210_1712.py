@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('trade_locker', '0004_traderlockeraccount_demo_status'),
         ('trade_locker', '0004_traderlockeraccount_demo_status_and_more'),
     ]
 

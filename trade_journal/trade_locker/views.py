@@ -116,6 +116,7 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
         password = request.data.get('password')
         server = request.data.get('server')
         demo_status = request.data.get('demo_status', True)
+        account_name = request.data.get('account_name')
 
         # Authenticate and get tokens
         access_token, refresh_token = authenticate(email, password, server, demo_status)
@@ -136,6 +137,7 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
                 'refresh_token': refresh_token,
                 'server': server,
                 'demo_status': demo_status,
+                'account_name': account_name,
             }
         )
 

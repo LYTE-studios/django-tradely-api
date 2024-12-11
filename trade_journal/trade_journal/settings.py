@@ -42,7 +42,7 @@ sentry_sdk.init(
 SECRET_KEY = 'django-insecure-x_sw%8brm-=kg4d)fbpup$d!j!=s6sg7bz!-olora(7)virst9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 AWS_STORAGE_BUCKET_NAME = 'tradely'
 AWS_S3_REGION_NAME = 'us-east-1'
@@ -67,13 +67,13 @@ STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 
 ALLOWED_HOSTS = [
-    # "api.tradely.lytestudios.be",
+    "api.tradely.lytestudios.be",
 ]
 
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://api.tradely.lytestudios.be',
-#     'http://api.tradely.lytestudios.be'
-# ]
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.tradely.lytestudios.be',
+    'http://api.tradely.lytestudios.be'
+]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -133,14 +133,14 @@ WSGI_APPLICATION = 'trade_journal.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# from .my_secrets import database
+from .my_secrets import database
 
 DATABASES = {
-    # 'default': database,
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': database,
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
 }
 
 
