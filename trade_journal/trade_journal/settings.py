@@ -22,8 +22,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
 
+from .my_secrets import sentry_dsn
+
 sentry_sdk.init(
-    dsn="https://a40a97ca74ee12e4031292ff477af9f8@o4506789659475968.ingest.us.sentry.io/4508438038446080",
+    dsn=sentry_dsn,
     # Set traces_sample_rate to 1.0 to capture 100%
     # of transactions for tracing.
     traces_sample_rate=1.0,

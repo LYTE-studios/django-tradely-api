@@ -8,7 +8,7 @@ class MetaTraderAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     account_name = models.CharField(max_length=255)
     api_token = models.CharField(max_length=255)
-    email = models.EmailField(unique=True, null=True)
+    email = models.EmailField(unique=False, null=True)
     password = models.TextField(null=True)
     key_code = models.BinaryField(null=True)
     server = models.CharField(max_length=255)
