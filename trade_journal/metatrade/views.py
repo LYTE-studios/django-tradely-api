@@ -7,6 +7,7 @@ from metaapi_cloud_sdk import MetaApi, MetaStats
 import asyncio
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
+from .utils import encrypt_password, decrypt_password, KEY
 
 User = get_user_model()
 
@@ -18,6 +19,15 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def login_account(self, request):
         api_token = request.data.get('api_token')
+        server_name = request.data.get('server_name')
+        username = request.data.get('username')
+        password = request.data.get('password')
+        account_name = request.data.get('account_name')
+        platform = request.data.get('platform')
+
+        if not api_token or not server_name or not username or not password:
+            return Response({'error': 'All fields are required: api_token, server_name, username, and password.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         async def connect_metatrade_login():
             api = MetaApi(api_token)
@@ -30,7 +40,22 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                         break
 
                 if not account:
-                    print('Token invalid or no cloud account found')
+                    try:
+                        account = await api.metatrader_account_api.create_account(
+                            {
+                                'name': 'Test account',
+                                'type': 'cloud',
+                                'login': username,
+                                'password': password,
+                                'server': server_name,
+                                'platform': platform,
+                                'magic': 1000,
+                            }
+                        )
+
+                        return account
+                    except Exception as e:
+                        return str(e)
                 else:
                     return account
 
@@ -49,11 +74,17 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
             user=user,
             defaults={
                 'api_token': api_token,
+                'email': username,
+                'password': encrypt_password(password),
+                'key_code': KEY,
+                'server': server_name,
+                'account_name': account_name,
             }
         )
         return Response({
             'message': 'Login successful.',
             'api_token': api_token,
+            'email': username,
             'user_id': trader_account.user.id
         }, status=status.HTTP_200_OK)
 
@@ -67,7 +98,8 @@ class FetchTradesView(viewsets.ModelViewSet):
 
         # Get the user's trader locker account
         try:
-            trader_account = MetaTraderAccount.objects.get(id=request.user.id)
+            email = request.data.get('email')
+            trader_account = MetaTraderAccount.objects.get(email=email)
             api_token = trader_account.api_token
         except MetaTraderAccount.DoesNotExist:
             return Response({'error': "Account does not exist for the given email."}, status=status.HTTP_404_NOT_FOUND)
@@ -93,7 +125,7 @@ class FetchTradesView(viewsets.ModelViewSet):
             try:
                 open_trades = await meta_stats.get_account_open_trades(account.id)
                 user_id = request.user.id
-                for trade in open_trades['trades']:
+                for trade in open_trades:
                     # Extract trade details
                     trade_instance = Trade(
                         user_id=user_id,

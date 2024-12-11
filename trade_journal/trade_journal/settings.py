@@ -67,7 +67,7 @@ STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 
 ALLOWED_HOSTS = [
-    "api.tradely.lytestudios.be"
+    "api.tradely.lytestudios.be",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
