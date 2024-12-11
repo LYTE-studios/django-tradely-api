@@ -19,8 +19,16 @@ class TraderLockerAccount(models.Model):
 
 
 class OrderHistory(models.Model):
+    trader_locker = models.ForeignKey(TraderLockerAccount, on_delete=models.CASCADE, null=True, blank=True)
     acc_id = models.CharField(max_length=255)
-    history = models.TextField()
+    amount = models.FloatField(default=0, null=True, blank=True)
+    instrument_id = models.IntegerField(default=0, null=True, blank=True)
+    order_id = models.CharField(max_length=255, null=True, blank=True)
+    position_id = models.CharField(max_length=255, null=True, blank=True)
+    market = models.CharField(max_length=100, null=True, blank=True)
+    market_status = models.CharField(max_length=255, default="market")
+    price = models.FloatField(default=0, null=True, blank=True)
+    side = models.CharField(max_length=10, default="buy")
 
 
 class Instruments(models.Model):

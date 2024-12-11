@@ -5,6 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TraderLockerAccount  # Make sure to include the model
+from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from metatrade.utils import encrypt_password, decrypt_password, KEY
 
@@ -150,84 +151,71 @@ class TraderLockerAccountViewSet(viewsets.ModelViewSet):
 class FetchTradesView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
-    @action(detail=True, methods=['post'])
+    @action(detail=False, methods=['post'])
     def fetch_trades(self, request):
-
         email = request.data.get('email')
-        # Get the user's trader locker account
-        try:
-            trader_account = TraderLockerAccount.objects.get(email=email)
-            refresh_token = trader_account.refresh_token
-            demo_status = trader_account.demo_status
-            if demo_status:
-                api_url_base = 'https://demo.tradelocker.com/backend-api/trade/accounts'
-                api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
-            else:
-                api_url_base = 'https://live.tradelocker.com/backend-api/trade/accounts'
-                api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
-        except TraderLockerAccount.DoesNotExist:
-            return Response({'error': "Account does not exist for the given email."}, status=status.HTTP_404_NOT_FOUND)
-        result_data = []
+        trader_account = get_object_or_404(TraderLockerAccount, email=email)
 
-        # Refresh the access token using the refresh token
-        access_token = refresh_access_token(refresh_token)
+        api_url_base, api_url_accounts = self.get_api_urls(trader_account.demo_status)
 
-        # Fetch all account numbers
+        access_token = refresh_access_token(trader_account.refresh_token, trader_account.demo_status)
+        if not access_token:
+            return Response({'error': "Failed to refresh access token."}, status=status.HTTP_401_UNAUTHORIZED)
+
         account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
         if not account_numbers:
-            return Response({'error': f"Failed to fetch account numbers for user {email}. Skipping to next user"},
+            return Response({'error': f"Failed to fetch account numbers for user {email}."},
                             status=status.HTTP_401_UNAUTHORIZED)
 
-        user_results = {
-            'email': email,
-            'account_numbers': []
+        result_data = self.process_accounts(trader_account, account_numbers, api_url_base, access_token)
+        return Response(result_data, status=status.HTTP_200_OK)
+
+    def get_api_urls(self, demo_status):
+        base = 'https://demo.tradelocker.com' if demo_status else 'https://live.tradelocker.com'
+        return f'{base}/backend-api/trade/accounts', f'{base}/backend-api/auth/jwt/all-accounts'
+
+    def process_accounts(self, trader_account, account_numbers, api_url_base, access_token):
+        result_data = {
+            'email': trader_account.email,
+            'orders_history': []
         }
 
         for account in account_numbers:
-            acc_num = account.get('accNum')
-            acc_id = account.get('id')
+            acc_num, acc_id = account.get('accNum'), account.get('id')
+            api_url_orders_history = f'{api_url_base}/{acc_id}/ordersHistory'
+            orders_history = fetch_orders_history(api_url_orders_history, access_token, acc_num)
 
-            # Fetch orders history for the account
-            api_url_orders_history_base = f'{api_url_base}/{acc_id}/ordersHistory'
-            orders_history = fetch_orders_history(api_url_orders_history_base, access_token, acc_num)
             if orders_history:
-                for history in orders_history:
-                    # Save each order history into the OrderHistory model
-                    OrderHistory.objects.create(
-                        acc_id=acc_id,
-                        history=history  # Assuming 'history' contains the details you want to store
-                    )
+                trade_history = self.process_orders_history(orders_history, acc_id, trader_account.id)
+                result_data['orders_history'].extend(trade_history)
 
-            # Fetch instruments available for trading
-            api_url_instruments_base = f'{api_url_base}/{acc_id}/instruments'
-            account_instruments = fetch_account_instruments(api_url_instruments_base, access_token, acc_num)
-            if account_instruments:
-                instruments_list = []
-                for instrument in account_instruments:
-                    # Save each instrument into the Instruments model
-                    inst, created = Instruments.objects.get_or_create(
-                        tradableInstrumentId=instrument.get('tradableInstrumentId'),
-                        defaults={
-                            'name': instrument.get('name'),
-                            'description': instrument.get('description'),
-                            'type': instrument.get('type'),
-                            'tradingExchange': instrument.get('tradingExchange'),
-                            'country': instrument.get('country'),
-                            'logoUrl': instrument.get('logoUrl'),
-                            'localizedName': instrument.get('localizedName'),
-                            'routes': instrument.get('routes'),
-                            'barSource': instrument.get('barSource'),
-                            'hasIntraday': instrument.get('hasIntraday'),
-                            'hasDaily': instrument.get('hasDaily'),
-                        }
-                    )
-                    instruments_list.append(inst)
+        return result_data
 
-                user_results['account_numbers'].append({
-                    'acc_num': acc_num,
-                    'acc_id': acc_id,
-                    'instruments': [inst.name for inst in instruments_list]  # List of instrument names
-                })
+    def process_orders_history(self, orders_history, acc_id, trader_locker_id):
+        trade_history = []
+        order_history_objects = []
 
-        result_data.append(user_results)
-        return Response(result_data, status=status.HTTP_200_OK)
+        for history in orders_history:
+            trade_info = {
+                'order_id': history[0],
+                'amount': history[3],
+                'instrument_id': history[1],
+                'side': history[4],
+                'market': history[5],
+                'market_status': history[6],
+                'position_id': history[16],
+                'price': history[8]
+            }
+
+            order_history_objects.append(
+                OrderHistory(
+                    acc_id=acc_id,
+                    trader_locker_id=trader_locker_id,
+                    **trade_info
+                )
+            )
+            trade_history.append(trade_info)
+
+        # Bulk create OrderHistory objects
+        OrderHistory.objects.bulk_create(order_history_objects)
+        return trade_history
