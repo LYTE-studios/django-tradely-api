@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, viewsets, status
 from rest_framework_simplejwt.tokens import AccessToken
+from metatrade.services import MetaApiService
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -25,6 +26,8 @@ import requests
 from rest_framework import status
 from django.db import transaction
 from concurrent.futures import ThreadPoolExecutor
+
+from trade_journal.my_secrets import meta_api_key
 
 
 class HelloThereView(generics.CreateAPIView):
@@ -315,131 +318,59 @@ def fetch_account_instruments(api_url_base, access_token, acc_num, locale='en'):
 
 class UserGetAllTradeAccountsView(APIView):
 
-    async def meta_api_synchronization(self, meta_account):
-        token = meta_account.api_token
-        login = meta_account.email
-        temp_password = meta_account.password
-        key_code = meta_account.key_code
-        cipher = Fernet(key_code)
-        password = cipher.decrypt(temp_password.encode()).decode()
-        server_name = meta_account.server
-        api = MetaApi(token)
-        try:
-            # Add test MetaTrader account
-            accounts = await api.metatrader_account_api.get_accounts_with_infinite_scroll_pagination()
-            account = None
-            for item in accounts:
-                if item.type.startswith('cloud'):
-                    account = item
-                    break
-            if not account:
-                print('Adding MT4 account to MetaApi')
-                account = await api.metatrader_account_api.create_account(
-                    {
-                        'name': 'Test account',
-                        'type': 'cloud',
-                        'login': login,
-                        'password': password,
-                        'server': server_name,
-                        'platform': 'mt4',
-                        'magic': 1000,
-                    }
-                )
-            else:
-                print('MT4 account already added to MetaApi')
-
-            await account.deploy()
-            await account.wait_connected()
-
-            # connect to MetaApi API
-            connection = account.get_rpc_connection()
-            await connection.connect()
-            terminal_state = await connection.wait_synchronized()
-            account_information = terminal_state.get_account_information()
-            await connection.close()
-            await account.undeploy()
-            return account_information
-
-        except Exception as err:
-            # process errors
-            if hasattr(err, 'details'):
-                # returned if the server file for the specified server name has not been found
-                # recommended to check the server name or create the account using a provisioning profile
-                if err.details == 'E_SRV_NOT_FOUND':
-                    print(err)
-                # returned if the server has failed to connect to the broker using your credentials
-                # recommended to check your login and password
-                elif err.details == 'E_AUTH':
-                    print(err)
-                # returned if the server has failed to detect the broker settings
-                # recommended to try again later or create the account using a provisioning profile
-                elif err.details == 'E_SERVER_TIMEZONE':
-                    print(err)
-            print(api.format_error(err))
-        exit()
-
     def get(self, request):
-        try:
-            user_data = {
-                "id": request.user.id,
-                "username": request.user.username,
-                "email": request.user.email,
-            }
-            meta_trade_accounts = MetaTraderAccount.objects.filter(user=request.user)
-            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
-            meta_account_info_list = []
-            trade_account_info_list = []
-            for meta_account in meta_trade_accounts:
-                account_info = asyncio.run(self.meta_api_synchronization(meta_account))
-                account_info['account_name'] = meta_account.account_name
-                meta_account_info_list.append(account_info)
+        user_data = {
+            "id": request.user.id,
+            "username": request.user.username,
+            "email": request.user.email,
+        }
+        trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
+        trade_account_info_list = []
 
-            for trade_account in trade_locker_accounts:
-                refresh_token = trade_account.refresh_token
-                demo_status = trade_account.demo_status
-                if demo_status:
-                    api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
-                else:
-                    api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
-                access_token = refresh_access_token(refresh_token)
+        meta_account_list = MetaApiService.fetch_accounts(user=request.user)
 
-                account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
-                for account in account_numbers:
-                    account['account_name'] = trade_account.account_name
-                    trade_account_info_list.append(account)
+        for trade_account in trade_locker_accounts:
+            refresh_token = trade_account.refresh_token
+            demo_status = trade_account.demo_status
+            if demo_status:
+                api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
+            else:
+                api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
+            access_token = refresh_access_token(refresh_token)
 
-            # Build a response structure
-            response_data = {
-                'user': user_data,
-                'meta_trade_accounts': meta_account_info_list,
-                'trade_locker_accounts': trade_account_info_list
-            }
+            account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
+            for account in account_numbers:
+                account['account_name'] = trade_account.account_name
+                trade_account_info_list.append(account)
 
-            return Response(response_data, status=200)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
+        # Build a response structure
+        response_data = {
+            'user': user_data,
+            'meta_trade_accounts': meta_account_list,
+            'trade_locker_accounts': trade_account_info_list
+        }
+
+        return Response(response_data, status=200)
 
 
 class UserGetAllTradesView(APIView):
     def get(self, request):
         try:
             user_data = self.get_user_data(request.user)
-            meta_trade_accounts = MetaTraderAccount.objects.filter(user=request.user)
             trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
 
+            meta_trade_list = MetaApiService.fetch_trades(user=request.user)
+
             with ThreadPoolExecutor() as executor:
-                meta_trade_futures = [executor.submit(self.fetch_meta_trades, account) for account in
-                                      meta_trade_accounts]
                 trade_locker_futures = [executor.submit(self.fetch_trade_locker_data, account) for account in
                                         trade_locker_accounts]
-
-                meta_trade_list = [future.result() for future in meta_trade_futures]
+                
                 trade_locker_list = [future.result() for future in trade_locker_futures]
 
             response_data = {
                 'user': user_data,
-                'meta_trade_accounts': meta_trade_list,
-                'trade_locker_accounts': trade_locker_list
+                'meta_trade_trades': meta_trade_list,
+                'trade_locker_trades': trade_locker_list
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
@@ -452,29 +383,6 @@ class UserGetAllTradesView(APIView):
             "username": user.username,
             "email": user.email,
         }
-
-    def fetch_meta_trades(self, meta_account):
-        api_token = meta_account.api_token
-        return asyncio.run(self.connect_and_fetch_trades(api_token))
-
-    async def connect_and_fetch_trades(self, api_token):
-        api = MetaApi(api_token)
-        meta_stats = MetaStats(api_token)
-        try:
-            accounts = await api.metatrader_account_api.get_accounts_with_infinite_scroll_pagination()
-            account = next((item for item in accounts if item.type.startswith('cloud')), None)
-            if not account:
-                return "Account does not exist or is not of type cloud"
-
-            if account.state != 'DEPLOYED':
-                await account.deploy()
-
-            if account.connection_status != 'CONNECTED':
-                await account.wait_connected()
-
-            return await meta_stats.get_account_open_trades(account.id)
-        except Exception as e:
-            return str(e)
 
     def fetch_trade_locker_data(self, trade_account):
         try:
