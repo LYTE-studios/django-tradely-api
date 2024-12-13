@@ -48,7 +48,7 @@ class TradeAccountSerializer(serializers.ModelSerializer):
 
 class ManualTradeSerializer(serializers.ModelSerializer):
     total_amount = serializers.DecimalField(
-        max_digits=10,
+        max_digits=15,
         decimal_places=2,
         read_only=True
     )
@@ -56,9 +56,9 @@ class ManualTradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ManualTrade
         fields = [
-            'id', 'account', 'trade_type', 'symbol',
-            'quantity', 'price', 'total_amount',
-            'trade_date', 'notes', 'created_at', 'updated_at'
+            'id', 'user', 'trade_type', 'symbol',
+            'quantity', 'price', 'profit', 'total_amount',
+            'trade_date', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'total_amount']
 
@@ -70,11 +70,6 @@ class ManualTradeSerializer(serializers.ModelSerializer):
         if data.get('price', 0) <= 0:
             raise serializers.ValidationError("Price must be greater than 0.")
 
-        # Ensure the trade account belongs to the current user
-        account = data.get('account')
-        if not account or account.user != self.context['request'].user:
-            raise serializers.ValidationError("You can only create trades for your own accounts.")
-
         return data
 
     def create(self, validated_data):
@@ -84,7 +79,6 @@ class ManualTradeSerializer(serializers.ModelSerializer):
                 Decimal(str(validated_data['price']))
         )
         return super().create(validated_data)
-
 
 class TradeStatisticsSerializer(serializers.Serializer):
     """

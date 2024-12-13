@@ -19,6 +19,7 @@ metaapi_cloud_sdk = "*"
 django-cors-headers = "*"
 cryptography = "*"
 sentry-sdk = "*"
+pytest = "*"
 
 [dev-packages]
 

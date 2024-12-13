@@ -34,7 +34,7 @@ class ManualTrade(models.Model):
     profit = models.FloatField(default=0.0, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)
     trade_date = models.DateTimeField()
-    notes = models.TextField(blank=True, null=True)
+
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
