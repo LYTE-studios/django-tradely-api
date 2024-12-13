@@ -14,7 +14,8 @@ from .views import (
     TradeNoteViewSet,
     HelloThereView,
     UserGetAllTradeAccountsView,
-    UserGetAllTradesView
+    UserGetAllTradesView,
+    LeaderBoardView,
 )
 
 # Create a router for the viewsets
@@ -61,7 +62,7 @@ urlpatterns = [
 
     path('get_all_accounts/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
     path('get_all_trades/', UserGetAllTradesView.as_view(), name='get-all-trades'),
-
+    path('leaderboard/', LeaderBoardView.as_view(), name='leaderboard'),
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),
 ]

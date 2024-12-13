@@ -22,7 +22,6 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         server_name = request.data.get('server_name')
         username = request.data.get('username')
         password = request.data.get('password')
-        account_name = request.data.get('account_name')
         platform = request.data.get('platform')
 
         if not api_token or not server_name or not username or not password:
@@ -62,10 +61,10 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 return str(e)
 
-        login_status = asyncio.run(connect_metatrade_login())
+        login_account = asyncio.run(connect_metatrade_login())
 
-        if isinstance(login_status, str):
-            return Response({'error': login_status}, status=status.HTTP_400_BAD_REQUEST)
+        if isinstance(login_account, str):
+            return Response({'error': login_account}, status=status.HTTP_400_BAD_REQUEST)
 
         # Here you would typically process and save the trades to your database
         # For this example, we're just returning them
@@ -78,7 +77,8 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 'password': encrypt_password(password),
                 'key_code': KEY,
                 'server': server_name,
-                'account_name': account_name,
+                'account_name': login_account.name,
+                'account_id': login_account.id
             }
         )
         return Response({
@@ -124,22 +124,21 @@ class FetchTradesView(viewsets.ModelViewSet):
                 await account.wait_connected()
             try:
                 open_trades = await meta_stats.get_account_open_trades(account.id)
-                user_id = request.user.id
                 for trade in open_trades:
                     # Extract trade details
                     trade_instance = Trade(
-                        user_id=user_id,
-                        trade_id=trade['tradeId'],
-                        symbol=trade['symbol'],
+                        user=request.user,
+                        account_id=trade['accountId'],
                         volume=trade['volume'],
-                        price_open=trade['openPrice'],
-                        price_close=trade['closePrice'],
+                        duration_in_minutes=trade['durationInMinutes'],
                         profit=trade['profit'],
-                        create_time=trade['openTime'],
-                        close_time=trade['closeTime']
+                        gain=trade['gain'],
+                        success=trade['success'],
+                        type=trade['type'],
+                        open_time=trade['openTime'],
                     )
                     trade_instance.save()  # Save to your database
-                return trades
+                return open_trades
             except Exception as e:
                 return str(e)
 
