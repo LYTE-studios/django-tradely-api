@@ -41,7 +41,7 @@ class MetaTraderAccount(models.Model):
 
 class Trade(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    account_id = models.CharField(max_length=255)
+    account_id = models.CharField(max_length=255, null=True)
     volume = models.FloatField(default=0, null=True, blank=True)
     duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
     profit = models.FloatField(default=0, null=True, blank=True)
