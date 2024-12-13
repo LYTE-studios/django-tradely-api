@@ -1,16 +1,16 @@
 import stripe
+from anymail.message import AnymailMessage
 from django.conf import settings
-from django.core.mail import send_mail
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .email_service import get_dynamic_email_backend
+from .models import Email
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentIntentSerializer
-from django.conf import settings
-from .models import Email  # Import your Email model
-from .email_service import get_dynamic_email_backend
-from anymail.message import AnymailMessage
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 

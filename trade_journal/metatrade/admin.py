@@ -1,8 +1,8 @@
 from django.contrib import admin
 
-# Register your models here.
-
 from .models import MetaTraderAccount, Trade
 
+# Register your models here.
+
 admin.site.register(MetaTraderAccount)
-admin.site.register(Trade)  
+admin.site.register(Trade)

@@ -1,6 +1,6 @@
-from django.contrib.auth.models import AbstractUser, Group, Permission
-from django.db import models
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
 class CustomUser(AbstractUser):
@@ -28,14 +28,12 @@ class ManualTrade(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manual_trades')
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPES)
-    symbol = models.CharField(max_length=10)  # e.g., AAPL, GOOGL
-    quantity = models.IntegerField()
-    price = models.DecimalField(max_digits=15, decimal_places=2)
+    symbol = models.CharField(max_length=10, null=True, default='')  # e.g., AAPL, GOOGL
+    quantity = models.IntegerField(null=True, blank=True, default=1)
+    price = models.DecimalField(max_digits=15, decimal_places=2, null=True, default=0)
     profit = models.FloatField(default=0.0, null=True, blank=True)
-    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    trade_date = models.DateTimeField()
-
-
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, default=0)
+    trade_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

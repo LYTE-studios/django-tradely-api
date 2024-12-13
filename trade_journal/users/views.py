@@ -1,6 +1,24 @@
-from rest_framework import generics, permissions, viewsets, status
-from rest_framework_simplejwt.tokens import AccessToken
+from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
+
+import requests
+from django.contrib.auth import authenticate
+from django.db import transaction
+from django.db.models import Sum
+from metatrade.models import Trade
 from metatrade.services import MetaApiService
+from rest_framework import generics, permissions, viewsets
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import AccessToken
+from trade_locker.models import TraderLockerAccount, OrderHistory
+
+from .email_service import brevo_email_service
+from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -8,27 +26,6 @@ from .serializers import (
     ManualTradeSerializer,
     TradeNoteSerializer
 )
-from django.db.models import Sum
-from rest_framework.response import Response
-from django.contrib.auth import authenticate
-from rest_framework.permissions import AllowAny
-from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
-from rest_framework.exceptions import ValidationError
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from decimal import Decimal
-from .email_service import brevo_email_service
-from metatrade.models import MetaTraderAccount, Trade
-from trade_locker.models import TraderLockerAccount, OrderHistory
-from metaapi_cloud_sdk import MetaApi, MetaStats
-from cryptography.fernet import Fernet
-import asyncio
-import requests
-from rest_framework import status
-from django.db import transaction
-from concurrent.futures import ThreadPoolExecutor
-
-from trade_journal.my_secrets import meta_api_key
 
 
 class HelloThereView(generics.CreateAPIView):

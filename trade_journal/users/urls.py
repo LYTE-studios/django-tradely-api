@@ -34,22 +34,22 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Trade account routes
-    path('api/trade-accounts/', TradeAccountViewSet.as_view({'get': 'list', 'post': 'create'}), name='trade-account-list'),
-    path('api/trade-accounts/<int:pk>/', TradeAccountViewSet.as_view({
+    path('trade-accounts/', TradeAccountViewSet.as_view({'get': 'list', 'post': 'create'}), name='trade-account-list'),
+    path('trade-accounts/<int:pk>/', TradeAccountViewSet.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='trade-account-detail'),
-    path('api/manual-trades/', ManualTradeViewSet.as_view({'get': 'list', 'post': 'create'}), name='manual-trade-list'),
-    path('api/manual-trades/<int:pk>/', ManualTradeViewSet.as_view({
+    path('manual-trades/', ManualTradeViewSet.as_view({'get': 'list', 'post': 'create'}), name='manual-trade-list'),
+    path('manual-trades/<int:pk>/', ManualTradeViewSet.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }),),
-    path('api/statistics/', ComprehensiveTradeStatisticsView.as_view(), name='comprehensive-trade-statistics'),
-    path('api/account-performance/', TradeAccountPerformanceView.as_view(), name='trade-account-performance'),
+    path('statistics/', ComprehensiveTradeStatisticsView.as_view(), name='comprehensive-trade-statistics'),
+    path('account-performance/', TradeAccountPerformanceView.as_view(), name='trade-account-performance'),
 
     # Explicitly add trade notes URLs
     path('trade-notes/', TradeNoteViewSet.as_view({'get': 'list', 'post': 'create'}), name='tradenote-list'),

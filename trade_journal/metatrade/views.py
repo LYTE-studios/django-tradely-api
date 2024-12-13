@@ -1,22 +1,22 @@
+import asyncio
+
+from django.contrib.auth import get_user_model
+from metaapi_cloud_sdk import MetaApi
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
-from rest_framework.views import APIView
-from rest_framework.response import Response
-
-from .services import MetaApiService
-from .models import MetaTraderAccount, Trade
-from .serializers import MetaTraderAccountSerializer
-from metaapi_cloud_sdk import MetaApi, MetaStats
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import get_user_model
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import MetaTraderAccount
+from .serializers import MetaTraderAccountSerializer
+from .services import MetaApiService
 from .utils import encrypt_password, KEY
-from datetime import datetime, timedelta
-from asgiref.sync import async_to_sync
-import asyncio
 
 User = get_user_model()
 
 from trade_journal.my_secrets import meta_api_key
+
 
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -36,6 +36,7 @@ class DeleteAccount(APIView):
             'message': 'Account deleted.'
         }, status=status.HTTP_200_OK)
 
+
 class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     serializer_class = MetaTraderAccountSerializer
     permission_classes = [IsAuthenticated]
@@ -54,10 +55,9 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         async def connect_metatrade_login():
             api = MetaApi(meta_api_key)
             try:
-                try:    
+                try:
                     account = await api.metatrader_account_api.create_account(
                         {
-                            'name': account_name,
                             'type': 'cloud',
                             'login': username,
                             'password': password,
@@ -90,8 +90,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 'password': encrypt_password(password),
                 'key_code': KEY,
                 'server': server_name,
-                'account_name': login_account.name,
-                'account_id': login_account.id
+                'account_name': account.name,
             }
         )
 
@@ -103,4 +102,3 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
             'email': username,
             'user_id': trader_account.user.id
         }, status=status.HTTP_200_OK)
-

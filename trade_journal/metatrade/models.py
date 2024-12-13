@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -47,7 +47,7 @@ class Trade(models.Model):
     profit = models.FloatField(default=0, null=True, blank=True)
     gain = models.FloatField(default=0, null=True, blank=True)
     success = models.CharField(max_length=255, null=True, blank=True)
-    open_time = models.CharField(max_length=255, null=True, blank=True)
+    open_time = models.DateTimeField(blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
 
     def to_dict(self):
@@ -55,14 +55,13 @@ class Trade(models.Model):
             'id': self.id,
             'user_id': self.user_id,
             'account_id': self.account_id,
-            'trade_id': self.trade_id,
-            'symbol': self.symbol,
             'volume': self.volume,
-            'price_open': self.price_open,
-            'price_close': self.price_close,
+            'duration_in_minutes': self.duration_in_minutes,
             'profit': self.profit,
-            'create_time': self.create_time.isoformat() if self.create_time else None,
-            'close_time': self.close_time.isoformat() if self.close_time else None,
+            'gain': self.gain,
+            'success': self.success,
+            'open_time': self.open_time.isoformat() if self.open_time else None,
+            'type': self.type
         }
 
     def __str__(self):
