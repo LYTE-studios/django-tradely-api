@@ -7,6 +7,7 @@ from .serializers import (
     ManualTradeSerializer,
     TradeNoteSerializer
 )
+from django.db.models import Sum
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
@@ -16,7 +17,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal
 from .email_service import brevo_email_service
-from metatrade.models import MetaTraderAccount
+from metatrade.models import MetaTraderAccount, Trade
 from trade_locker.models import TraderLockerAccount, OrderHistory
 from metaapi_cloud_sdk import MetaApi, MetaStats
 from cryptography.fernet import Fernet
@@ -420,6 +421,38 @@ class UserGetAllTradeAccountsView(APIView):
             return Response({"error": str(e)}, status=500)
 
 
+class LeaderBoardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Aggregate profits from Trade and ManualTrade models
+        trade_profits = Trade.objects.values('user').annotate(total_profit=Sum('profit'))
+        manual_trade_profits = ManualTrade.objects.values('user').annotate(total_profit=Sum('profit'))
+
+        # Combine the results
+        combined_profits = {}
+        for trade in trade_profits:
+            user_id = trade['user']
+            combined_profits[user_id] = combined_profits.get(user_id, 0) + trade['total_profit']
+
+        for manual_trade in manual_trade_profits:
+            user_id = manual_trade['user']
+            combined_profits[user_id] = combined_profits.get(user_id, 0) + manual_trade['total_profit']
+
+        # Include users with no trades or manual trades
+        all_users = CustomUser.objects.all()
+        for user in all_users:
+            if user.id not in combined_profits:
+                combined_profits[user.id] = 0
+
+        # Convert to a list of dictionaries and sort by total profit
+        leaderboard = [{'user': CustomUser.objects.get(id=user_id).username, 'total_profit': profit} for user_id, profit
+                       in combined_profits.items()]
+        leaderboard = sorted(leaderboard, key=lambda x: x['total_profit'], reverse=True)
+
+        return Response(leaderboard)
+
+
 class UserGetAllTradesView(APIView):
     def get(self, request):
         try:
@@ -428,7 +461,7 @@ class UserGetAllTradesView(APIView):
             trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
 
             with ThreadPoolExecutor() as executor:
-                meta_trade_futures = [executor.submit(self.fetch_meta_trades, account) for account in
+                meta_trade_futures = [executor.submit(self.fetch_meta_trades, account, request.user) for account in
                                       meta_trade_accounts]
                 trade_locker_futures = [executor.submit(self.fetch_trade_locker_data, account) for account in
                                         trade_locker_accounts]
@@ -453,11 +486,11 @@ class UserGetAllTradesView(APIView):
             "email": user.email,
         }
 
-    def fetch_meta_trades(self, meta_account):
+    def fetch_meta_trades(self, meta_account, user):
         api_token = meta_account.api_token
-        return asyncio.run(self.connect_and_fetch_trades(api_token))
+        return asyncio.run(self.connect_and_fetch_trades(api_token, user))
 
-    async def connect_and_fetch_trades(self, api_token):
+    async def connect_and_fetch_trades(self, api_token, user):
         api = MetaApi(api_token)
         meta_stats = MetaStats(api_token)
         try:
@@ -471,8 +504,22 @@ class UserGetAllTradesView(APIView):
 
             if account.connection_status != 'CONNECTED':
                 await account.wait_connected()
-
-            return await meta_stats.get_account_open_trades(account.id)
+            open_trades = await meta_stats.get_account_open_trades(account.id)
+            for trade in open_trades:
+                # Extract trade details
+                trade_instance = Trade(
+                    user=user,
+                    account_id=trade['accountId'],
+                    volume=trade['volume'],
+                    duration_in_minutes=trade['durationInMinutes'],
+                    profit=trade['profit'],
+                    gain=trade['gain'],
+                    success=trade['success'],
+                    type=trade['type'],
+                    open_time=trade['openTime'],
+                )
+                trade_instance.save()  # Save to your database
+            return open_trades
         except Exception as e:
             return str(e)
 

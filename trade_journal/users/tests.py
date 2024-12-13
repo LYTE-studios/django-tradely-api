@@ -10,10 +10,8 @@ import datetime
 from .email_service import BrevoEmailService
 from django.utils import timezone
 from unittest.mock import patch
-
-
+from metatrade.models import Trade
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
-
 
 User = get_user_model()
 
@@ -61,7 +59,8 @@ class UserTests(APITestCase):
 class UserProfileTests(APITestCase):
 
     def setUp(self):
-        self.admin_user = User.objects.create_user(username='adminuser', email='admin@example.com', password='password', is_superuser=True)
+        self.admin_user = User.objects.create_user(username='adminuser', email='admin@example.com', password='password',
+                                                   is_superuser=True)
         self.regular_user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
         self.client.login(username='adminuser', password='password')
 
@@ -116,6 +115,7 @@ class UserProfileTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
 class TradeAccountTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -133,6 +133,7 @@ class TradeAccountTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(TradeAccount.objects.count(), 1)
         self.assertEqual(TradeAccount.objects.first().name, 'Test Account')
+
 
 class ManualTradeTests(TestCase):
     def setUp(self):
@@ -159,6 +160,7 @@ class ManualTradeTests(TestCase):
         trade = ManualTrade.objects.first()
         self.assertEqual(trade.symbol, 'AAPL')
         self.assertEqual(trade.total_amount, Decimal('1500.00'))
+
 
 class TradeStatisticsViewTests(TestCase):
     def setUp(self):
@@ -253,6 +255,8 @@ class TradeStatisticsViewTests(TestCase):
             account_perf['total_traded_amount'],
             Decimal('7500.00')
         )
+
+
 class TradeNoteTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
@@ -326,6 +330,7 @@ class TradeNoteTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(TradeNote.objects.count(), 0)
 
+
 class BrevoEmailServiceTest(TestCase):
     def setUp(self):
         self.email_service = BrevoEmailService()
@@ -362,3 +367,37 @@ class BrevoEmailServiceTest(TestCase):
 
         self.assertTrue(success)
         mock_post.assert_called_once()
+
+
+class LeaderBoardViewTest(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user1 = CustomUser.objects.create_user(username='user1', email='user1@example.com', password='password')
+        self.user2 = CustomUser.objects.create_user(username='user2', email='user2@example.com', password='password')
+        self.user3 = CustomUser.objects.create_user(username='user3', email='user3@example.com', password='password')
+
+        # Create trades for user1
+        Trade.objects.create(user=self.user1, profit=100)
+        Trade.objects.create(user=self.user1, profit=200)
+
+        # Create manual trades for user2
+        ManualTrade.objects.create(user=self.user2, profit=150)
+        ManualTrade.objects.create(user=self.user2, profit=250)
+
+        # No trades for user3
+
+    def test_leaderboard(self):
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(reverse('leaderboard'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        leaderboard = response.json()
+        self.assertEqual(len(leaderboard), 3)
+
+        # Check if the leaderboard is sorted by total profit
+        self.assertEqual(leaderboard[0]['user'], 'user2')
+        self.assertEqual(leaderboard[0]['total_profit'], 400)
+        self.assertEqual(leaderboard[1]['user'], 'user1')
+        self.assertEqual(leaderboard[1]['total_profit'], 300)
+        self.assertEqual(leaderboard[2]['user'], 'user3')
+        self.assertEqual(leaderboard[2]['total_profit'], 0)
