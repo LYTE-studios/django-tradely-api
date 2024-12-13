@@ -45,7 +45,6 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         server_name = request.data.get('server_name')
         username = request.data.get('username')
         password = request.data.get('password')
-        account_name = request.data.get('account_name')
         platform = request.data.get('platform')
 
         if not server_name or not username or not password:
@@ -91,7 +90,8 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 'password': encrypt_password(password),
                 'key_code': KEY,
                 'server': server_name,
-                'account_name': account_name,
+                'account_name': login_account.name,
+                'account_id': login_account.id
             }
         )
 

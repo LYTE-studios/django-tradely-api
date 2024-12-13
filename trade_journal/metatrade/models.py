@@ -40,16 +40,15 @@ class MetaTraderAccount(models.Model):
 
 
 class Trade(models.Model):
-    user_id = models.CharField(max_length=255)
-    account_id = models.CharField(max_length=255, null=True)
-    trade_id = models.CharField(max_length=255)
-    symbol = models.CharField(max_length=10)
-    volume = models.FloatField()
-    price_open = models.FloatField()
-    price_close = models.FloatField()
-    profit = models.FloatField()
-    create_time = models.DateTimeField()
-    close_time = models.DateTimeField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    account_id = models.CharField(max_length=255)
+    volume = models.FloatField(default=0, null=True, blank=True)
+    duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
+    profit = models.FloatField(default=0, null=True, blank=True)
+    gain = models.FloatField(default=0, null=True, blank=True)
+    success = models.CharField(max_length=255, null=True, blank=True)
+    open_time = models.CharField(max_length=255, null=True, blank=True)
+    type = models.CharField(max_length=255, null=True, blank=True)
 
     def to_dict(self):
         return {

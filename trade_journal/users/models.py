@@ -27,11 +27,11 @@ class ManualTrade(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manual_trades')
-    account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='trades')
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPES)
     symbol = models.CharField(max_length=10)  # e.g., AAPL, GOOGL
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=15, decimal_places=2)
+    profit = models.FloatField(default=0.0, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)
     trade_date = models.DateTimeField()
     notes = models.TextField(blank=True, null=True)
