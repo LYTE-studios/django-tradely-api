@@ -68,6 +68,8 @@ STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 
 ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
     "api.tradely.lytestudios.be",
 ]
 

@@ -29,18 +29,18 @@ class MetaApiService:
             accounts = await sync_to_async(MetaTraderAccount.objects.filter)(user=user)
         except Exception as e:
             print(f"Error fetching meta accounts: {str(e)}")
-            return
+            raise e
         
-        for account in accounts:
+        async for account in accounts:
             if account.cached_at and account.cached_until and account.cached_until > datetime.now():
                 continue
             
             try:
                 api = MetaApi(meta_api_key)
                 meta_stats = MetaStats(meta_api_key)
-                meta_trades = await meta_stats.get_account_trades(account.account_id)
+                meta_trades = await meta_stats.get_account_trades(account.account_id, start_time=datetime.now() - timedelta(days=365), end_time=datetime.now()),
 
-                for trade in meta_trades:
+                async for trade in meta_trades:
                     await sync_to_async(Trade.objects.update_or_create)(user=user,
                         account_id=account.account_id,
                         defaults={
@@ -67,8 +67,15 @@ class MetaApiService:
 
             except Exception as e:
                 print(f"Error refreshing account: {str(e)}")
-                continue
-    
+                raise e
+            finally:
+                if api:
+                    try:
+                        # Clean up MetaApi resources
+                        await api.close()
+                    except Exception as e:
+                        print(f"Error closing MetaApi connection: {str(e)}")
+
     @staticmethod
     def _refresh_caches_sync(user):
         """Synchronous wrapper for refresh_caches"""
@@ -99,7 +106,7 @@ class MetaApiService:
         
         thread = threading.Thread(target=refresh)
         thread.start()
-        thread.join(timeout=5)  # Wait up to 5 seconds
+        thread.join(timeout=15)  # Wait up to 5 seconds
 
         return [account.to_dict() for account in account_list]
 
@@ -122,7 +129,7 @@ class MetaApiService:
         
         thread = threading.Thread(target=refresh)
         thread.start()
-        thread.join(timeout=5)  # Wait up to 5 seconds
+        thread.join(timeout=15)  # Wait up to 5 seconds
         
         trades = Trade.objects.filter(account_id__in=[account.id for account in account_list])
         return [trade.to_dict() for trade in trades]

@@ -408,7 +408,7 @@ class UserGetAllTradesView(APIView):
                 meta_trade_list = MetaApiService.fetch_trades(user=request.user)
             except Exception as e:
                 print(f"Error fetching meta trades: {str(e)}")
-                meta_trade_list = []    
+                raise e    
 
             # with ThreadPoolExecutor() as executor:
             #     trade_locker_futures = [executor.submit(self.fetch_trade_locker_data, account) for account in
