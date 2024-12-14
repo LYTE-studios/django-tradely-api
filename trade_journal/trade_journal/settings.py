@@ -128,8 +128,11 @@ TEMPLATES = [
     },
 ]
 
+DJANGO_ALLOW_ASYNC_UNSAFE = True
+
 WSGI_APPLICATION = 'trade_journal.wsgi.application'
 
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

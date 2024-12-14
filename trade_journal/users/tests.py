@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from rest_framework import status
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from rest_framework import status
@@ -201,16 +201,29 @@ class UserRegistrationViewTest(APITestCase):
 
 
 class UserGetAllTradeAccountsViewTest(APITestCase):
-    @patch('users.views.MetaApiService.fetch_accounts')
-    def test_user_get_all_trade_accounts_view(self, mock_fetch_accounts):
-        mock_fetch_accounts.return_value = []
-        self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
+    @patch('metatrade.services.MetaApiService.refresh_caches')
+    @patch('metatrade.models.MetaTraderAccount.objects.filter')
+    def test_user_get_all_trade_accounts_view(self, mock_filter, mock_refresh):
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.to_dict.return_value = {'id': 1, 'name': 'Test'}
+        mock_filter.return_value = [mock_account]
+        
+        # Create user and authenticate
+        self.user = User.objects.create_user(
+            username='user1', 
+            email='user1@example.com', 
+            password='password'
+        )
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/users/get_all_trades/')
+        
+        response = self.client.get('/api/users/get_all_accounts/')
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('user', response.data)
-        self.assertIn('meta_trade_trades', response.data)
-        self.assertIn('trade_locker_trades', response.data)
+        self.assertIn('meta_trade_accounts', response.data)
+        self.assertIn('trade_locker_accounts', response.data)
+
 
 
 class LeaderBoardViewTest(APITestCase):
@@ -224,23 +237,23 @@ class LeaderBoardViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
 
-
 class UserGetAllTradesViewTest(APITestCase):
-
-    @patch('users.views.MetaApiService.fetch_accounts')
-    @patch('users.views.refresh_access_token')
-    @patch('users.views.fetch_all_account_numbers')
-    def test_user_get_all_trade_accounts_view(
-        self, 
-        mock_fetch_all_account_numbers, 
-        mock_refresh_access_token, 
-        mock_fetch_accounts
-    ):
+    
+    @patch('metatrade.services.MetaApiService.refresh_caches')
+    @patch('metatrade.services.Trade.objects.filter')
+    @patch('metatrade.services.MetaTraderAccount.objects.filter')
+    def test_user_get_all_trades_view(self, mock_account_filter, mock_trade_filter, mock_refresh_caches):
         # Setup mocks
-        mock_fetch_accounts.return_value = []
-        mock_refresh_access_token.return_value = 'mock_token'
-        mock_fetch_all_account_numbers.return_value = []
+        mock_account = MagicMock()
+        mock_account.id = '1'
+        mock_account_filter.return_value = [mock_account]
         
+        mock_trade = MagicMock()
+        mock_trade.to_dict.return_value = {'id': '1', 'amount': 100}
+        mock_trade_filter.return_value = [mock_trade]
+        
+        mock_refresh_caches.return_value = None
+
         # Create user and authenticate
         self.user = User.objects.create_user(
             username='user1', 
@@ -248,30 +261,9 @@ class UserGetAllTradesViewTest(APITestCase):
             password='password'
         )
         self.client.force_authenticate(user=self.user)
-
-        TraderLockerAccount.objects.create(
-            user=self.user,
-            email='test@example.com',
-            refresh_token='test_token',
-            server='test_server',
-            account_name='test_account'
-        )
         
-        # Make request
-        response = self.client.get('/api/users/get_all_accounts/')
-        
-        # Assertions
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('user', response.data)
-        self.assertIn('meta_trade_accounts', response.data)
-        self.assertIn('trade_locker_accounts', response.data)
-        
-    @patch('users.views.MetaApiService.fetch_trades')
-    def test_user_get_all_trades_view(self, mock_fetch_trades):
-        mock_fetch_trades.return_value = []
-        self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
-        self.client.force_authenticate(user=self.user)
         response = self.client.get('/api/users/get_all_trades/')
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('user', response.data)
         self.assertIn('meta_trade_trades', response.data)

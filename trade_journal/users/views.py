@@ -326,7 +326,7 @@ class UserGetAllTradeAccountsView(APIView):
                 "username": request.user.username,
                 "email": request.user.email,
             }
-            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
+            # trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
             trade_account_info_list = []
 
             try:
@@ -335,22 +335,22 @@ class UserGetAllTradeAccountsView(APIView):
                 print(f"Error fetching meta accounts: {str(e)}")
                 meta_account_list = []
 
-            for trade_account in trade_locker_accounts:
-                try:
-                    refresh_token = trade_account.refresh_token
-                    demo_status = trade_account.demo_status
-                    api_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts' if demo_status else 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
+            # for trade_account in trade_locker_accounts:
+            #     try:
+            #         refresh_token = trade_account.refresh_token
+            #         demo_status = trade_account.demo_status
+            #         api_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts' if demo_status else 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
                     
-                    access_token = refresh_access_token(refresh_token)
-                    if access_token:
-                        account_numbers = fetch_all_account_numbers(api_url, access_token)
-                        if account_numbers:
-                            for account in account_numbers:
-                                account['account_name'] = trade_account.account_name
-                                trade_account_info_list.append(account)
-                except Exception as e:
-                    print(f"Error processing trade account {trade_account.id}: {str(e)}")
-                    continue
+            #         access_token = refresh_access_token(refresh_token)
+            #         if access_token:
+            #             account_numbers = fetch_all_account_numbers(api_url, access_token)
+            #             if account_numbers:
+            #                 for account in account_numbers:
+            #                     account['account_name'] = trade_account.account_name
+            #                     trade_account_info_list.append(account)
+            #     except Exception as e:
+            #         print(f"Error processing trade account {trade_account.id}: {str(e)}")
+            #         continue
 
             return Response({
                 'user': user_data,
@@ -403,25 +403,28 @@ class UserGetAllTradesView(APIView):
     def get(self, request):
         try:
             user_data = self.get_user_data(request.user)
-            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
 
-            meta_trade_list = MetaApiService.fetch_trades(user=request.user)
+            try:
+                meta_trade_list = MetaApiService.fetch_trades(user=request.user)
+            except Exception as e:
+                print(f"Error fetching meta trades: {str(e)}")
+                meta_trade_list = []    
 
-            with ThreadPoolExecutor() as executor:
-                trade_locker_futures = [executor.submit(self.fetch_trade_locker_data, account) for account in
-                                        trade_locker_accounts]
+            # with ThreadPoolExecutor() as executor:
+            #     trade_locker_futures = [executor.submit(self.fetch_trade_locker_data, account) for account in
+            #                             trade_locker_accounts]
                 
-                trade_locker_list = [future.result() for future in trade_locker_futures]
+            #     trade_locker_list = [future.result() for future in trade_locker_futures]
 
             response_data = {
                 'user': user_data,
                 'meta_trade_trades': meta_trade_list,
-                'trade_locker_trades': trade_locker_list
+                'trade_locker_trades': [],
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
-            print(f"Error fetching trades: {str(e)}")
+            print(f"Error fetching global trades: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_user_data(self, user):
