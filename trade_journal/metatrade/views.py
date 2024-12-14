@@ -85,6 +85,8 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                     'platform': platform,
                     'magic': 1000,
                 })
+
+                await account.enable_metastats_api()
                 
                 logger.info(f"Successfully created MetaApi account: {account.id}")
                 

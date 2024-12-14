@@ -31,7 +31,7 @@ class MetaApiService:
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
+
         try:  
             accounts = await sync_to_async(MetaTraderAccount.objects.filter)(user=user)
         except Exception as e:
@@ -74,7 +74,6 @@ class MetaApiService:
                 
                 account_information = await connection.get_account_information()
                 await connection.close()
-                await meta_account.undeploy()
 
                 account.balance = account_information['balance']
                 account.cached_until = timezone.now() + timedelta(minutes=30)
