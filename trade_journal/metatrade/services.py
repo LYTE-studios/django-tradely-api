@@ -40,7 +40,9 @@ class MetaApiService:
                 meta_stats = MetaStats(meta_api_key)
                 meta_trades = await meta_stats.get_account_trades(account.account_id, start_time=datetime.now() - timedelta(days=365), end_time=datetime.now()),
 
-                async for trade in meta_trades:
+                for trade in meta_trades[0]:
+                    if trade['type'] == 'DEAL_TYPE_BALANCE':
+                        continue
                     await sync_to_async(Trade.objects.update_or_create)(user=user,
                         account_id=account.account_id,
                         defaults={
