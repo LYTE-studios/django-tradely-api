@@ -65,4 +65,4 @@ class Trade(models.Model):
         }
 
     def __str__(self):
-        return f'Trade {self.trade_id} for user {self.account_id}'
+        return f'Trade {self.id} for user {self.account_id}'

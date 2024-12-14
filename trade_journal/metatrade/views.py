@@ -6,6 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+import asyncio
+from functools import wraps
 
 from .models import MetaTraderAccount
 from .serializers import MetaTraderAccountSerializer
@@ -20,32 +22,45 @@ User = get_user_model()
 
 from trade_journal.my_secrets import meta_api_key
 
+def with_event_loop(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop.run_until_complete(f(*args, **kwargs))
+    return wrapper
 
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def delete(self, request, *args, **kwargs):
+    @with_event_loop
+    async def delete(self, request, *args, **kwargs):
         account_id = kwargs['account_id']
 
         if not account_id:
             return Response({'error': 'All fields are required: account_id.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        account = MetaTraderAccount.objects.get(id=account_id)
+        account = await sync_to_async(MetaTraderAccount.objects.get)(id=account_id)
+        
+        await sync_to_async(account.delete)()
 
-        account.delete()
-
-        return Response({
+        return Response({   
             'message': 'Account deleted.'
-        }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
 
 class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     serializer_class = MetaTraderAccountSerializer
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['post'])
-    def login_account(self, request):  # Make the view async
+    @with_event_loop
+    async def login_account(self, request):
         server_name = request.data.get('server_name')
+        account_name = request.data.get('account_name')
         username = request.data.get('username')
         password = request.data.get('password')
         platform = request.data.get('platform')
@@ -61,14 +76,15 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
             logger.info(f"Attempting to create MetaApi account for {username} on {server_name}")
             
             try:
-                account = async_to_sync(api.metatrader_account_api.create_account)({
-                        'type': 'cloud',
-                        'login': username,
-                        'password': password,
-                        'server': server_name,
-                        'platform': platform,
-                        'magic': 1000,
-                    })
+                account = await api.metatrader_account_api.create_account({
+                    'type': 'cloud',
+                    'login': username,
+                    'name': account_name,
+                    'password': password,
+                    'server': server_name,
+                    'platform': platform,
+                    'magic': 1000,
+                })
                 
                 logger.info(f"Successfully created MetaApi account: {account.id}")
                 
@@ -82,7 +98,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
 
             user = request.user
             try:
-                trader_account, created = MetaTraderAccount.objects.update_or_create(
+                trader_account = await sync_to_async(MetaTraderAccount.objects.update_or_create)(
                     user=user,
                     defaults={
                         'account_id': account.id,
@@ -90,10 +106,10 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                         'password': encrypt_password(password),
                         'key_code': KEY,
                         'server': server_name,
-                        'account_name': account.name,
+                        'account_name': account_name,
                     }
                 )
-                logger.info(f"Created/Updated trader account: {trader_account.id}")
+                logger.info(f"Created/Updated trader account: {trader_account[0].id}")
                 
             except Exception as db_error:
                 logger.error(f"Database operation failed: {str(db_error)}")
@@ -103,7 +119,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 )
 
             try:
-                async_to_sync(MetaApiService.refresh_caches)(user=user)
+                await MetaApiService.refresh_caches(user=user)
                 logger.info("Successfully refreshed caches")
             except Exception as cache_error:
                 logger.warning(f"Cache refresh failed (non-critical): {str(cache_error)}")
@@ -112,7 +128,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 'message': 'Login successful.',
                 'account_id': account.id,
                 'email': username,
-                'user_id': trader_account.user.id
+                'user_id': trader_account[0].user.id
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
