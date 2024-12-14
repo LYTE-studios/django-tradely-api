@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from rest_framework import status
 from decimal import Decimal
 from unittest.mock import patch
@@ -6,6 +7,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.test import APITestCase
+
+from trade_locker.models import TraderLockerAccount
 
 from .models import TradeAccount, ManualTrade, TradeNote
 
@@ -19,8 +22,8 @@ class HelloThereViewTest(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_hello_there_view(self):
-        response = self.client.post('/api/users//hello-there/')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.client.get('/api/users/hello-there/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class UserLoginViewTest(APITestCase):
@@ -63,11 +66,24 @@ class TradeAccountViewSetTest(APITestCase):
 class ManualTradeViewSetTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
+        self.user = User.objects.create_user(
+            username='user1', 
+            email='user1@example.com', 
+            password='password'
+        )
         self.client.force_authenticate(user=self.user)
-        self.trade_account = TradeAccount.objects.create(user=self.user, name='Test Account')
-        self.manual_trade = ManualTrade.objects.create(user=self.user, symbol='AAPL',
-                                                       total_amount=Decimal('100.00'))
+        self.trade_account = TradeAccount.objects.create(
+            user=self.user, 
+            name='Test Account'
+        )
+        self.manual_trade = ManualTrade.objects.create(
+            account=self.trade_account,
+            symbol='AAPL',
+            total_amount=Decimal('100.00'),
+            trade_type='BUY',
+            quantity=1,
+            price=Decimal('100.00')
+        )
 
     def test_manual_trade_view_set(self):
         response = self.client.get('/api/users/manual-trades/')
@@ -75,15 +91,60 @@ class ManualTradeViewSetTest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['symbol'], 'AAPL')
 
+    def test_create_manual_trade(self):
+        data = {
+            'account': self.trade_account.id,
+            'symbol': 'GOOGL',
+            'trade_type': 'BUY',
+            'quantity': 1,
+            'price': '150.00'
+        }
+        response = self.client.post('/api/users/manual-trades/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ManualTrade.objects.count(), 2)
+
+    def test_create_manual_trade_wrong_account(self):
+        other_user = User.objects.create_user(
+            username='user2', 
+            email='user2@example.com', 
+            password='password'
+        )
+        other_account = TradeAccount.objects.create(
+            user=other_user, 
+            name='Other Account'
+        )
+        data = {
+            'account': other_account.id,
+            'symbol': 'GOOGL',
+            'trade_type': 'BUY',
+            'quantity': 1,
+            'price': '150.00'
+        }
+        response = self.client.post('/api/users/manual-trades/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 class ComprehensiveTradeStatisticsViewTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
+        self.user = User.objects.create_user(
+            username='user1', 
+            email='user1@example.com', 
+            password='password'
+        )
         self.client.force_authenticate(user=self.user)
-        self.trade_account = TradeAccount.objects.create(user=self.user, name='Test Account')
-        self.manual_trade = ManualTrade.objects.create(user=self.user, symbol='AAPL',
-                                                       total_amount=Decimal('100.00'))
+        self.trade_account = TradeAccount.objects.create(
+            user=self.user, 
+            name='Test Account'
+        )
+        self.manual_trade = ManualTrade.objects.create(
+            account=self.trade_account,
+            symbol='AAPL',
+            total_amount=Decimal('100.00'),
+            trade_type='BUY',
+            quantity=1,
+            price=Decimal('100.00'),
+            trade_date=datetime.now(timezone.utc)
+        )
 
     def test_comprehensive_trade_statistics_view(self):
         response = self.client.get('/api/users/statistics/')
@@ -99,9 +160,13 @@ class TradeAccountPerformanceViewTest(APITestCase):
         self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
         self.client.force_authenticate(user=self.user)
         self.trade_account = TradeAccount.objects.create(user=self.user, name='Test Account')
-        self.manual_trade = ManualTrade.objects.create(user=self.user, symbol='AAPL',
-                                                       total_amount=Decimal('100.00'))
-
+        self.manual_trade = ManualTrade.objects.create(
+            account=self.trade_account, 
+            symbol='AAPL',
+            trade_type='BUY',
+            quantity=1,
+            price=Decimal('100.00')
+        )
     def test_trade_account_performance_view(self):
         response = self.client.get('/api/users/account-performance/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -161,6 +226,46 @@ class LeaderBoardViewTest(APITestCase):
 
 
 class UserGetAllTradesViewTest(APITestCase):
+
+    @patch('users.views.MetaApiService.fetch_accounts')
+    @patch('users.views.refresh_access_token')
+    @patch('users.views.fetch_all_account_numbers')
+    def test_user_get_all_trade_accounts_view(
+        self, 
+        mock_fetch_all_account_numbers, 
+        mock_refresh_access_token, 
+        mock_fetch_accounts
+    ):
+        # Setup mocks
+        mock_fetch_accounts.return_value = []
+        mock_refresh_access_token.return_value = 'mock_token'
+        mock_fetch_all_account_numbers.return_value = []
+        
+        # Create user and authenticate
+        self.user = User.objects.create_user(
+            username='user1', 
+            email='user1@example.com', 
+            password='password'
+        )
+        self.client.force_authenticate(user=self.user)
+
+        TraderLockerAccount.objects.create(
+            user=self.user,
+            email='test@example.com',
+            refresh_token='test_token',
+            server='test_server',
+            account_name='test_account'
+        )
+        
+        # Make request
+        response = self.client.get('/api/users/get_all_accounts/')
+        
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('user', response.data)
+        self.assertIn('meta_trade_accounts', response.data)
+        self.assertIn('trade_locker_accounts', response.data)
+        
     @patch('users.views.MetaApiService.fetch_trades')
     def test_user_get_all_trades_view(self, mock_fetch_trades):
         mock_fetch_trades.return_value = []

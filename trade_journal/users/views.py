@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import Sum
 from metatrade.models import Trade
 from metatrade.services import MetaApiService
-from rest_framework import generics, permissions, viewsets
+from rest_framework import permissions, viewsets, generics
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
@@ -28,8 +28,11 @@ from .serializers import (
 )
 
 
-class HelloThereView(generics.CreateAPIView):
+class HelloThereView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({'message': 'Hello There!'})
 
 
 class UserRegisterView(generics.CreateAPIView):
@@ -124,24 +127,23 @@ class ManualTradeViewSet(BaseModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Fetch only trades from accounts owned by the current user
+        # Get trades from accounts owned by the current user
         return ManualTrade.objects.filter(account__user=self.request.user)
 
     def perform_create(self, serializer):
-        # Validate that the account belongs to the current user
-        account_id = serializer.validated_data.get('account')
-        if not TradeAccount.objects.filter(id=account_id.id, user=self.request.user).exists():
+        # Ensure the account belongs to the current user
+        account = serializer.validated_data.get('account')
+        if not account.user == self.request.user:
             raise ValidationError("You can only add trades to your own accounts.")
-
-        return serializer.save(user=self.request.user)
+        serializer.save()
 
 
 class ComprehensiveTradeStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get user's trades
-        trades = ManualTrade.objects.filter(user=request.user)
+        # Get user's trades through their accounts
+        trades = ManualTrade.objects.filter(account__user=request.user)
 
         # Overall statistics
         overall_statistics = {
@@ -164,15 +166,16 @@ class ComprehensiveTradeStatisticsView(APIView):
         # Monthly trade summary (simplified)
         monthly_trade_summary = {}
         for trade in trades:
-            month_key = trade.trade_date.strftime('%Y-%m')
-            if month_key not in monthly_trade_summary:
-                monthly_trade_summary[month_key] = {
-                    'month': month_key,
-                    'total_trades': 0,
-                    'total_amount': Decimal('0')
-                }
-            monthly_trade_summary[month_key]['total_trades'] += 1
-            monthly_trade_summary[month_key]['total_amount'] += trade.total_amount
+            if trade.trade_date:
+                month_key = trade.trade_date.strftime('%Y-%m')
+                if month_key not in monthly_trade_summary:
+                    monthly_trade_summary[month_key] = {
+                        'month': month_key,
+                        'total_trades': 0,
+                        'total_amount': Decimal('0')
+                    }
+                monthly_trade_summary[month_key]['total_trades'] += 1
+                monthly_trade_summary[month_key]['total_amount'] += trade.total_amount
 
         return Response({
             'overall_statistics': overall_statistics,
@@ -187,11 +190,11 @@ class TradeAccountPerformanceView(APIView):
     def get(self, request):
         # Get user's trade accounts
         accounts = TradeAccount.objects.filter(user=request.user)
-
         account_performances = []
+
         for account in accounts:
-            # Get trades for this specific account
-            trades = ManualTrade.objects.filter(user=request.user, account=account)
+            # Get trades for this specific account - note the changed filter
+            trades = ManualTrade.objects.filter(account=account)
 
             account_performance = {
                 'account_id': account.id,
@@ -236,9 +239,9 @@ class UserRegistrationView(APIView):
                 )
                 if not success:
                     # Log email sending failure but don't block registration
-                    logger.warning(f"Failed to send registration email to {user.email}")
+                    print(f"Failed to send registration email to {user.email}")
             except Exception as e:
-                logger.error(f"Email service error: {e}")
+                print(f"Email service error: {e}")
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -317,38 +320,50 @@ def fetch_account_instruments(api_url_base, access_token, acc_num, locale='en'):
 class UserGetAllTradeAccountsView(APIView):
 
     def get(self, request):
-        user_data = {
-            "id": request.user.id,
-            "username": request.user.username,
-            "email": request.user.email,
-        }
-        trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
-        trade_account_info_list = []
+        try:
+            user_data = {
+                "id": request.user.id,
+                "username": request.user.username,
+                "email": request.user.email,
+            }
+            trade_locker_accounts = TraderLockerAccount.objects.filter(user=request.user)
+            trade_account_info_list = []
 
-        meta_account_list = MetaApiService.fetch_accounts(user=request.user)
+            try:
+                meta_account_list = MetaApiService.fetch_accounts(user=request.user)
+            except Exception as e:
+                print(f"Error fetching meta accounts: {str(e)}")
+                meta_account_list = []
 
-        for trade_account in trade_locker_accounts:
-            refresh_token = trade_account.refresh_token
-            demo_status = trade_account.demo_status
-            if demo_status:
-                api_url_accounts = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts'
-            else:
-                api_url_accounts = 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
-            access_token = refresh_access_token(refresh_token)
+            for trade_account in trade_locker_accounts:
+                try:
+                    refresh_token = trade_account.refresh_token
+                    demo_status = trade_account.demo_status
+                    api_url = 'https://demo.tradelocker.com/backend-api/auth/jwt/all-accounts' if demo_status else 'https://live.tradelocker.com/backend-api/auth/jwt/all-accounts'
+                    
+                    access_token = refresh_access_token(refresh_token)
+                    if access_token:
+                        account_numbers = fetch_all_account_numbers(api_url, access_token)
+                        if account_numbers:
+                            for account in account_numbers:
+                                account['account_name'] = trade_account.account_name
+                                trade_account_info_list.append(account)
+                except Exception as e:
+                    print(f"Error processing trade account {trade_account.id}: {str(e)}")
+                    continue
 
-            account_numbers = fetch_all_account_numbers(api_url_accounts, access_token)
-            for account in account_numbers:
-                account['account_name'] = trade_account.account_name
-                trade_account_info_list.append(account)
-
-        # Build a response structure
-        response_data = {
-            'user': user_data,
-            'meta_trade_accounts': meta_account_list,
-            'trade_locker_accounts': trade_account_info_list
-        }
-
-        return Response(response_data, status=200)
+            return Response({
+                'user': user_data,
+                'meta_trade_accounts': meta_account_list,
+                'trade_locker_accounts': trade_account_info_list
+            }, status=200)
+        
+        except Exception as e:
+            print(f"Error fetching trade accounts: {str(e)}")
+            return Response(
+                {'error': f'An error occurred: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class LeaderBoardView(APIView):
@@ -357,7 +372,8 @@ class LeaderBoardView(APIView):
     def get(self, request):
         # Aggregate profits from Trade and ManualTrade models
         trade_profits = Trade.objects.values('user').annotate(total_profit=Sum('profit'))
-        manual_trade_profits = ManualTrade.objects.values('user').annotate(total_profit=Sum('profit'))
+        manual_trade_profits = ManualTrade.objects.values('account__user')\
+            .annotate(total_profit=Sum('profit'))
 
         # Combine the results
         combined_profits = {}
@@ -366,7 +382,7 @@ class LeaderBoardView(APIView):
             combined_profits[user_id] = combined_profits.get(user_id, 0) + trade['total_profit']
 
         for manual_trade in manual_trade_profits:
-            user_id = manual_trade['user']
+            user_id = manual_trade['account__user']
             combined_profits[user_id] = combined_profits.get(user_id, 0) + manual_trade['total_profit']
 
         # Include users with no trades or manual trades
@@ -405,6 +421,7 @@ class UserGetAllTradesView(APIView):
 
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
+            print(f"Error fetching trades: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_user_data(self, user):

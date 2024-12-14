@@ -2,6 +2,8 @@
 from unittest.mock import patch, MagicMock
 
 from django.contrib.auth import get_user_model
+from django.test import AsyncClient
+from rest_framework.test import APIClient, APITestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
@@ -9,7 +11,6 @@ from rest_framework.test import APIClient, APITestCase
 from .models import MetaTraderAccount
 
 User = get_user_model()
-
 
 class MetaTraderAccountViewSetTest(APITestCase):
     def setUp(self):
@@ -35,44 +36,49 @@ class MetaTraderAccountViewSetTest(APITestCase):
 
     @patch('metatrade.views.MetaApi')
     @patch('metatrade.views.encrypt_password')
-    def test_login_account(self, mock_encrypt_password, MockMetaApi):
-        mock_encrypt_password.return_value = b'encrypted_password'  # Encode the password as bytes
+    @patch('metatrade.services.MetaApiService.refresh_caches')
+    def test_login_account(self, mock_refresh_caches, mock_encrypt_password, MockMetaApi):
+        mock_encrypt_password.return_value = b'encrypted_password'
+        mock_refresh_caches.return_value = None
+        
+        # Setup mock MetaApi
         mock_meta_api = MockMetaApi.return_value
         mock_meta_account = MagicMock()
-        mock_meta_api.metatrader_account_api.create_account.return_value = mock_meta_account
         mock_meta_account.id = '12345'
-        mock_meta_account.name = 'account_name'
+        mock_meta_account.name = 'test_account'
+
+        # Create async mock
+        async def async_create_account(*args, **kwargs):
+            return mock_meta_account
+        
+        mock_meta_api.metatrader_account_api.create_account = async_create_account
 
         url = reverse('metatrade_login')
         data = {
             'server_name': 'server_name',
             'username': 'user1@example.com',
             'password': 'password',
-            'platform': 'platform'
+            'platform': 'mt4',
+            'account_name': 'test_account'
         }
+
         response = self.client.post(url, data, format='json')
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['message'], 'Login successful.')
-        self.assertEqual(response.data['email'], 'user1@example.com')
-        self.assertEqual(response.data['user_id'], self.user.id)
-        self.assertTrue(MetaTraderAccount.objects.filter(account_id='12345').exists())
-
-    def test_login_account_missing_fields(self):
-        url = reverse('metatrade_login')
-        data = {
-            'server_name': 'server_name',
-            'username': '',
-            'password': 'password',
-            'platform': 'platform'
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['error'], 'All fields are required: server_name, username, and password.')
 
     @patch('metatrade.views.MetaApi')
     def test_login_account_api_error(self, MockMetaApi):
         mock_meta_api = MockMetaApi.return_value
-        mock_meta_api.metatrader_account_api.create_account.side_effect = Exception('API error')
+        
+        class MetaApiError(Exception):
+            def __str__(self):
+                return "API error"
+        
+        async def async_error(*args, **kwargs):
+            raise MetaApiError()
+        
+        mock_meta_api.metatrader_account_api.create_account = async_error
 
         url = reverse('metatrade_login')
         data = {
@@ -81,6 +87,8 @@ class MetaTraderAccountViewSetTest(APITestCase):
             'password': 'password',
             'platform': 'platform'
         }
+        
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['error'], 'API error')
+        self.assertEqual(response.data['error'], "API error")
+

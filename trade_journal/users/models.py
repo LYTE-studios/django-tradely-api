@@ -26,7 +26,7 @@ class ManualTrade(models.Model):
         ('SELL', 'Sell')
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='manual_trades')
+    account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades')
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPES)
     symbol = models.CharField(max_length=10, null=True, default='')  # e.g., AAPL, GOOGL
     quantity = models.IntegerField(null=True, blank=True, default=1)

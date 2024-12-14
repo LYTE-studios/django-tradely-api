@@ -30,7 +30,7 @@ from .models import CustomUser
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth']  # Add other fields as needed
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth']
 
 
 class TradeAccountSerializer(serializers.ModelSerializer):
@@ -40,7 +40,6 @@ class TradeAccountSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_balance(self, value):
-        # Ensure balance is not negative
         if value < 0:
             raise serializers.ValidationError("Balance cannot be negative.")
         return value
@@ -56,7 +55,7 @@ class ManualTradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ManualTrade
         fields = [
-            'id', 'user', 'trade_type', 'symbol',
+            'id', 'account', 'trade_type', 'symbol',
             'quantity', 'price', 'profit', 'total_amount',
             'trade_date', 'created_at', 'updated_at'
         ]
@@ -70,6 +69,13 @@ class ManualTradeSerializer(serializers.ModelSerializer):
         if data.get('price', 0) <= 0:
             raise serializers.ValidationError("Price must be greater than 0.")
 
+        # Validate that the account belongs to the user making the request
+        request = self.context.get('request')
+        if request and request.user:
+            account = data.get('account')
+            if account and account.user != request.user:
+                raise serializers.ValidationError("You can only create trades for your own accounts.")
+
         return data
 
     def create(self, validated_data):
@@ -79,6 +85,7 @@ class ManualTradeSerializer(serializers.ModelSerializer):
                 Decimal(str(validated_data['price']))
         )
         return super().create(validated_data)
+
 
 class TradeStatisticsSerializer(serializers.Serializer):
     """
@@ -107,19 +114,25 @@ class SymbolPerformanceSerializer(serializers.Serializer):
 class TradeNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeNote
-        fields = ['id', 'trade', 'trade_note', 'note_date', 'created_at', 'updated_at']
-        extra_kwargs = {
-            'user': {'read_only': True},
-            'trade': {'required': False}
-        }
-
+        fields = ['id', 'user', 'trade', 'trade_note', 'note_date', 'created_at', 'updated_at']
+        read_only_fields = ['user']
     def validate(self, data):
         # If no trade is provided during update, keep the existing trade
         if not data.get('trade') and not data.get('note_date'):
             raise serializers.ValidationError("Either trade or note_date must be provided")
+
+        # Validate that the trade belongs to the user's account
+        request = self.context.get('request')
+        if request and request.user:
+            trade = data.get('trade')
+            if trade and trade.account.user != request.user:
+                raise serializers.ValidationError("You can only create notes for trades in your accounts.")
+
         return data
 
-    def update(self, instance, validated_data):
-        # Ensure user is not changed during update
-        validated_data.pop('user', None)
-        return super().update(instance, validated_data)
+    def create(self, validated_data):
+        # Ensure the user is set from the request
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
