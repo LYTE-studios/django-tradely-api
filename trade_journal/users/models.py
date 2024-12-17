@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
@@ -25,7 +26,8 @@ class ManualTrade(models.Model):
         ('SELL', 'Sell')
     ]
 
-    account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades')
+    account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades', null=True,
+                                blank=True)
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPES)
     symbol = models.CharField(max_length=10, null=True, default='')  # e.g., AAPL, GOOGL
     quantity = models.IntegerField(null=True, blank=True, default=1)
@@ -38,7 +40,7 @@ class ManualTrade(models.Model):
 
     def to_dict(self):
         return {
-            'id': self.id,   
+            'id': self.id,
             'trade_type': self.trade_type,
             'symbol': self.symbol,
             'quantity': self.quantity,
@@ -68,8 +70,7 @@ class ManualTrade(models.Model):
         profit = metatrade_trade.profit
 
         # Set the trade date
-        trade_date = metatrade_trade.open_time 
-
+        trade_date = metatrade_trade.open_time
 
         return ManualTrade(
             trade_type=trade_type,

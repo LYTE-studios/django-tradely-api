@@ -7,6 +7,7 @@ from django.utils import timezone
 from .models import TraderLockerAccount, OrderHistory
 import requests
 
+
 class TradeLockerService:
     def __init__(self):
         self._refresh_lock = asyncio.Lock()
@@ -22,7 +23,7 @@ class TradeLockerService:
     def _refresh_access_token(self, refresh_token: str, demo_status: bool = True) -> Optional[str]:
         """Refresh access token for TradeLocker API"""
         refresh_url = f'https://{"demo" if demo_status else "live"}.tradelocker.com/backend-api/auth/jwt/refresh'
-        
+
         try:
             response = requests.post(refresh_url, json={"refreshToken": refresh_token})
             if response.status_code == 201:
@@ -96,7 +97,7 @@ class TradeLockerService:
         """Refresh trades for a single account"""
         api_url_base, api_url_accounts = self._get_api_urls(account.demo_status)
         access_token = self._refresh_access_token(account.refresh_token, account.demo_status)
-        
+
         if not access_token:
             raise Exception(f"Failed to refresh access token for account {account.id}")
 
@@ -109,7 +110,7 @@ class TradeLockerService:
             acc_num, acc_id = acc.get('accNum'), acc.get('id')
             api_url_orders_history = f'{api_url_base}/{acc_id}/ordersHistory'
             orders_history = self._fetch_orders_history(api_url_orders_history, access_token, acc_num)
-            
+
             if orders_history:
                 trade_history = self._process_orders_history(orders_history, acc_id, account.id)
                 all_orders_history.extend(trade_history)
@@ -155,7 +156,7 @@ class TradeLockerService:
         """Refresh all TradeLocker accounts for a user"""
         accounts = TraderLockerAccount.objects.filter(user=user)
         all_trades = []
-        
+
         for account in accounts:
             try:
                 trades = self.refresh_account(account)
@@ -163,6 +164,5 @@ class TradeLockerService:
             except Exception as e:
                 print(f"Error refreshing account {account.id}: {str(e)}")
                 continue
-                
-        return all_trades
 
+        return all_trades

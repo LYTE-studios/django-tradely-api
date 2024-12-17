@@ -9,11 +9,12 @@ from trade_journal.my_secrets import meta_api_key
 from users.models import ManualTrade
 from .models import MetaTraderAccount, Trade
 
+
 class CacheManager:
     def __init__(self, cache_duration: int = 30):
         self.cache_duration = cache_duration
         self._refresh_lock = asyncio.Lock()
-        
+
     def needs_refresh(self, cached_at: Optional[datetime], cached_until: Optional[datetime]) -> bool:
         if not cached_at or not cached_until:
             return True
@@ -29,7 +30,9 @@ def ensure_event_loop(func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         return func(*args, **kwargs, loop=loop)
+
     return wrapper
+
 
 class MetaApiService:
     def __init__(self):
@@ -41,7 +44,7 @@ class MetaApiService:
         if not self._meta_api:
             self._meta_api = MetaApi(meta_api_key)
         return self._meta_api
-                                    
+
     async def close_meta_api(self):
         if self._meta_api:
             try:
@@ -63,7 +66,7 @@ class MetaApiService:
                 'maxDelayInMilliseconds': 3000
             }
         })
-        
+
         return await asyncio.wait_for(
             meta_stats.get_account_trades(
                 account_id,
@@ -77,7 +80,7 @@ class MetaApiService:
         try:
             meta_api = await self.get_meta_api()
             meta_account = await meta_api.metatrader_account_api.get_account(account.account_id)
-            
+
             await meta_account.deploy()
             await meta_account.wait_deployed()
 
@@ -131,13 +134,13 @@ class MetaApiService:
                 accounts = await sync_to_async(MetaTraderAccount.objects.filter)(user=user)
                 async for account in accounts:
                     if not force_refresh and not self.cache_manager.needs_refresh(
-                        account.cached_at, account.cached_until
+                            account.cached_at, account.cached_until
                     ):
                         continue
                     await self.refresh_account(account, user)
             finally:
                 await self.close_meta_api()
-    
+
     @staticmethod
     def refresh_caches_sync(user, force_refresh=False):
         """
@@ -164,14 +167,14 @@ class MetaApiService:
 
         loop.create_task(service.refresh_caches(user))
         return [account.to_dict() for account in account_list]
-        
+
     @staticmethod
     @ensure_event_loop
     def fetch_trades(user, loop=None):
         service = MetaApiService()
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
-        
+
         loop.create_task(service.refresh_caches(user))
         trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
         return [ManualTrade.from_metatrade(trade) for trade in trades]

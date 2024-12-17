@@ -34,7 +34,7 @@ class TradeLockerServiceTests(TestCase):
             self.trade_locker_account.demo_status
         )
 
-    @patch('trade_locker.services.TradeLockerService.fetch_orders_history')
+    @patch('trade_locker.services.TradeLockerService._fetch_orders_history')
     def test_fetch_trades(self, mock_fetch_orders):
         mock_fetch_orders.return_value = [
             {
@@ -64,10 +64,10 @@ class TradeLockerViewsTests(APITestCase):
             demo_status=True
         )
 
-    @patch('trade_locker.views.TradeLockerService.refresh_all_accounts')
+    @patch('trade_locker.services.TradeLockerService.refresh_all_accounts')
     def test_refresh_accounts(self, mock_refresh):
         mock_refresh.return_value = {'success': True}
-        response = self.client.post(reverse('refresh-trade-locker-accounts'))
+        response = self.client.post(reverse('refresh-account'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['success'])

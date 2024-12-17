@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db.models import Sum
 from datetime import datetime
 from metatrade.services import MetaApiService
+from ctrader.services import CTraderService
 from trade_locker.services import TradeLockerService
 from .models import ManualTrade, CustomUser, TradeAccount
 
@@ -56,6 +57,25 @@ class TradeService:
                     'balance': Decimal(str(account.get('balance', 0))),
                     'type': 'trade_locker',
                     'last_updated': account.get('last_updated'),
+                    'details': account
+                })
+        except Exception as e:
+            print(f"Error fetching trade locker accounts: {str(e)}")
+        # get CTrader accounts
+        try:
+            c_trader_accounts = CtraderService.fetch_accounts(user)
+            accounts_summary['c_trader_accounts'] = c_trader_accounts
+            c_trader_balance = sum(Decimal(str(account.get('balance', 0))) for account in c_trader_accounts)
+            accounts_summary['total_balance'] += c_trader_balance
+
+            # Add to combined accounts list
+            for account in c_trader_accounts:
+                accounts_summary['accounts'].append({
+                    'id': account.get('id'),
+                    'name': account.get('account', 'C-Trader Account'),
+                    'balance': Decimal(str(account.get('balance', 0))),
+                    'type': 'c_trader',
+                    'last_updated': account.get('updated_at'),
                     'details': account
                 })
         except Exception as e:
@@ -183,6 +203,12 @@ class TradeService:
         # Get MetaAPI trades
         try:
             meta_trades = [trade.to_dict() for trade in MetaApiService.fetch_trades(user=user)]
+            trades.extend(meta_trades)
+        except Exception as e:
+            print(f"Error fetching meta trades: {str(e)}")
+        # Get C Trader trades
+        try:
+            meta_trades = [trade.to_dict() for trade in CtraderService.fetch_trades(user=user)]
             trades.extend(meta_trades)
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")

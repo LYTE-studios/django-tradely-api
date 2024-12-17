@@ -141,7 +141,7 @@ class MetaApiServiceTests(TestCase):
             account.cached_until
         ))
 
-    @patch('metatrade.services.MetaApiService._refresh_caches_sync')
+    @patch('metatrade.services.MetaApiService.refresh_caches_sync')
     def test_fetch_trades(self, mock_refresh):
         Trade.objects.create(
             user=self.user,

@@ -22,6 +22,7 @@ User = get_user_model()
 
 from trade_journal.my_secrets import meta_api_key
 
+
 def with_event_loop(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -31,7 +32,9 @@ def with_event_loop(f):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         return loop.run_until_complete(f(*args, **kwargs))
+
     return wrapper
+
 
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -45,12 +48,13 @@ class DeleteAccount(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         account = await sync_to_async(MetaTraderAccount.objects.get)(id=account_id)
-        
+
         await sync_to_async(account.delete)()
 
-        return Response({   
+        return Response({
             'message': 'Account deleted.'
-            }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
+
 
 class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     serializer_class = MetaTraderAccountSerializer
@@ -74,7 +78,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
         try:
             api = MetaApi(meta_api_key)
             logger.info(f"Attempting to create MetaApi account for {username} on {server_name}")
-            
+
             try:
                 account = await api.metatrader_account_api.create_account({
                     'type': 'cloud',
@@ -94,9 +98,9 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                     'region': 'new-york',
                     'magic': 1000,
                 })
-                
+
                 logger.info(f"Successfully created MetaApi account: {account.id}")
-                
+
             except Exception as meta_error:
                 logger.error(f"MetaApi create_account failed: {str(meta_error)}")
                 logger.error(f"Full Error Object: {vars(meta_error)}")
@@ -119,7 +123,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                     }
                 )
                 logger.info(f"Created/Updated trader account: {trader_account[0].id}")
-                
+
             except Exception as db_error:
                 logger.error(f"Database operation failed: {str(db_error)}")
                 return Response(

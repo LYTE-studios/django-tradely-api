@@ -11,8 +11,8 @@ from django.contrib.auth import get_user_model
 from metatrade.utils import encrypt_password, decrypt_password, KEY
 from rest_framework.views import APIView
 
-
 User = get_user_model()
+
 
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -25,12 +25,12 @@ class DeleteAccount(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         account = TraderLockerAccount.objects.get(id=account_id)
-        
+
         account.delete
 
-        return Response({   
+        return Response({
             'message': 'Account deleted.'
-            }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
 
 # Create your views here.

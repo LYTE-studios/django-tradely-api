@@ -72,7 +72,7 @@ class AccountViewsTests(APITestCase):
             'total_balance': Decimal('3000'),
             'accounts': []
         }
-        response = self.client.get(reverse('get_all_accounts/'))
+        response = self.client.get(reverse('get-all-trade-accounts'))
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_balance'], '3000')
@@ -84,7 +84,7 @@ class AccountViewsTests(APITestCase):
             'total_trades': 10
         }
 
-        response = self.client.get(reverse('account-performance/'))
+        response = self.client.get(reverse('trade-account-performance'))
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_profit'], '500')
