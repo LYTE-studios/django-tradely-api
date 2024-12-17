@@ -82,7 +82,7 @@ class PaymentSerializerTest(APITestCase):
         self.assertEqual(data['amount'], str(self.payment_data['amount']))
         self.assertEqual(data['currency'], self.payment_data['currency'])
         self.assertEqual(data['status'], self.payment_data['status'])
-        self.assertEqual(data['user'], self.payment_data['user'])
+        self.assertEqual(data['user'], self.user.id)  # Compare with user.id instead of user object
 
 
 class PaymentIntentSerializerTest(APITestCase):
@@ -99,11 +99,12 @@ class PaymentIntentSerializerTest(APITestCase):
 
 class SendEmailSerializerTest(APITestCase):
     def test_send_email_serializer(self):
+        from django.utils import timezone
         data = {
             'subject': 'Test Subject',
             'message': 'Test Message',
             'recipient_list': ['test@example.com'],
-            'deliver_time': datetime.now(),
+            'deliver_time': timezone.now(),  # Use timezone-aware datetime
             'email_service_name': 'Mailjet',
             'email_service_api_key': 'test_api_key',
             'email_service_api_secret': 'test_api_secret'
@@ -113,7 +114,11 @@ class SendEmailSerializerTest(APITestCase):
         self.assertEqual(serializer.validated_data['subject'], data['subject'])
         self.assertEqual(serializer.validated_data['message'], data['message'])
         self.assertEqual(serializer.validated_data['recipient_list'], data['recipient_list'])
-        self.assertEqual(serializer.validated_data['deliver_time'], data['deliver_time'])
+        # Compare timestamps instead of full datetime objects
+        self.assertEqual(
+            serializer.validated_data['deliver_time'].timestamp(),
+            data['deliver_time'].timestamp()
+        )
         self.assertEqual(serializer.validated_data['email_service_name'], data['email_service_name'])
         self.assertEqual(serializer.validated_data['email_service_api_key'], data['email_service_api_key'])
         self.assertEqual(serializer.validated_data['email_service_api_secret'], data['email_service_api_secret'])

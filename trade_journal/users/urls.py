@@ -5,15 +5,16 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
 from rest_framework.routers import DefaultRouter
 from .views import (
+    AccountPerformanceView,
+    AccountsSummaryView,
+    RefreshAllAccountsView,
     UserRegisterView,
     UserLoginView,
     TradeAccountViewSet,
     ManualTradeViewSet,
     ComprehensiveTradeStatisticsView,
-    TradeAccountPerformanceView,
     TradeNoteViewSet,
     HelloThereView,
-    UserGetAllTradeAccountsView,
     UserGetAllTradesView,
     LeaderBoardView,
 )
@@ -29,7 +30,7 @@ urlpatterns = [
     # Authentication routes
     path('register/', UserRegisterView.as_view(), name='register'),
     path('login/', UserLoginView.as_view(), name='login'),
-    path('hello-there', HelloThereView.as_view(), name='hello-there'),
+    path('hello-there/', HelloThereView.as_view(), name='hello-there'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
@@ -49,7 +50,7 @@ urlpatterns = [
         'delete': 'destroy'
     }),),
     path('statistics/', ComprehensiveTradeStatisticsView.as_view(), name='comprehensive-trade-statistics'),
-    path('account-performance/', TradeAccountPerformanceView.as_view(), name='trade-account-performance'),
+    path('account-performance/', AccountPerformanceView.as_view(), name='trade-account-performance'),
 
     # Explicitly add trade notes URLs
     path('trade-notes/', TradeNoteViewSet.as_view({'get': 'list', 'post': 'create'}), name='tradenote-list'),
@@ -60,8 +61,9 @@ urlpatterns = [
         'delete': 'destroy'
     }), name='tradenote-detail'),
 
-    path('get_all_accounts/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
+    path('get_all_accounts/', AccountsSummaryView.as_view(), name='get-all-trade-accounts'),
     path('get_all_trades/', UserGetAllTradesView.as_view(), name='get-all-trades'),
+    path('refresh-account/', RefreshAllAccountsView.as_view(), name='refresh-account'),
     path('leaderboard/', LeaderBoardView.as_view(), name='leaderboard'),
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),

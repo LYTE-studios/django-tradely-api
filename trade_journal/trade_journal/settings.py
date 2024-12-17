@@ -68,6 +68,8 @@ STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 
 ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
     "api.tradely.lytestudios.be",
 ]
 
@@ -128,8 +130,11 @@ TEMPLATES = [
     },
 ]
 
+DJANGO_ALLOW_ASYNC_UNSAFE = True
+
 WSGI_APPLICATION = 'trade_journal.wsgi.application'
 
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
