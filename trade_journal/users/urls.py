@@ -16,6 +16,7 @@ from .views import (
     UserGetAllTradeAccountsView,
     UserGetAllTradesView,
     LeaderBoardView,
+    RefreshAccount,
 )
 
 # Create a router for the viewsets
@@ -62,6 +63,7 @@ urlpatterns = [
 
     path('get_all_accounts/', UserGetAllTradeAccountsView.as_view(), name='get-all-trade-accounts'),
     path('get_all_trades/', UserGetAllTradesView.as_view(), name='get-all-trades'),
+    path('refresh-account/', RefreshAccount.as_view(), name='refresh-account'),
     path('leaderboard/', LeaderBoardView.as_view(), name='leaderboard'),
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),

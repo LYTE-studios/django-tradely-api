@@ -21,6 +21,7 @@ cryptography = "*"
 sentry-sdk = "*"
 pytest = "*"
 coverage = "*"
+uvicorn = "*"
 
 [dev-packages]
 

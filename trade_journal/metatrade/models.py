@@ -3,7 +3,6 @@ from django.db import models
 
 User = get_user_model()
 
-
 class MetaTraderAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     account_id = models.CharField(max_length=255, null=True)
@@ -42,6 +41,8 @@ class MetaTraderAccount(models.Model):
 class Trade(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     account_id = models.CharField(max_length=255, null=True)
+    trade_id = models.CharField(max_length=255, null=True)
+    symbol = models.CharField(max_length=255, null=True)
     volume = models.FloatField(default=0, null=True, blank=True)
     duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
     profit = models.FloatField(default=0, null=True, blank=True)
@@ -49,20 +50,6 @@ class Trade(models.Model):
     success = models.CharField(max_length=255, null=True, blank=True)
     open_time = models.DateTimeField(blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'account_id': self.account_id,
-            'volume': self.volume,
-            'duration_in_minutes': self.duration_in_minutes,
-            'profit': self.profit,
-            'gain': self.gain,
-            'success': self.success,
-            'open_time': self.open_time.isoformat() if self.open_time else None,
-            'type': self.type
-        }
 
     def __str__(self):
         return f'Trade {self.id} for user {self.account_id}'

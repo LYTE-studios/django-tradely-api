@@ -398,14 +398,31 @@ class LeaderBoardView(APIView):
 
         return Response(leaderboard)
 
+class RefreshAccount(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
+    def post(self, request, *args, **kwargs):
+
+        force_refresh = request.data.get('force_refresh', True)
+
+        MetaApiService.refresh_caches_sync(request.user, force_refresh=force_refresh)
+
+        return Response({   
+            'message': 'Caches refreshed'
+            }, status=status.HTTP_200_OK)
+    
 class UserGetAllTradesView(APIView):
     def get(self, request):
         try:
+
+            trades = []
+
             user_data = self.get_user_data(request.user)
 
             try:
                 meta_trade_list = MetaApiService.fetch_trades(user=request.user)
+
+                trades.extend(meta_trade_list)
             except Exception as e:
                 print(f"Error fetching meta trades: {str(e)}")
                 raise e    
@@ -418,8 +435,7 @@ class UserGetAllTradesView(APIView):
 
             response_data = {
                 'user': user_data,
-                'meta_trade_trades': meta_trade_list,
-                'trade_locker_trades': [],
+                'trades': trades,
             }
 
             return Response(response_data, status=status.HTTP_200_OK)

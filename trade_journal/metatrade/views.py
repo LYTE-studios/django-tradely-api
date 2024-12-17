@@ -86,7 +86,14 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                     'magic': 1000,
                 })
 
+                await account.wait_deployed()
+
                 await account.enable_metastats_api()
+
+                await account.create_replica({
+                    'region': 'new-york',
+                    'magic': 1000,
+                })
                 
                 logger.info(f"Successfully created MetaApi account: {account.id}")
                 

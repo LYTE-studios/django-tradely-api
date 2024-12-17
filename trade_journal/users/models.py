@@ -2,7 +2,6 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
@@ -36,6 +35,51 @@ class ManualTrade(models.Model):
     trade_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,   
+            'trade_type': self.trade_type,
+            'symbol': self.symbol,
+            'quantity': self.quantity,
+            'price': self.price,
+            'profit': self.profit,
+            'total_amount': self.total_amount,
+            'trade_date': self.trade_date,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
+
+    @staticmethod
+    def from_metatrade(metatrade_trade):
+
+        # Set the trade type
+        trade_type = 'SELL'
+        if metatrade_trade.type == 'DEAL_TYPE_BUY':
+            trade_type = 'BUY'
+
+        # Set the symbol
+        symbol = metatrade_trade.symbol
+
+        # Set the quantity
+        quantity = metatrade_trade.volume
+
+        # Set the profit
+        profit = metatrade_trade.profit
+
+        # Set the trade date
+        trade_date = metatrade_trade.open_time 
+
+
+        return ManualTrade(
+            trade_type=trade_type,
+            symbol=symbol,
+            quantity=quantity,
+            price=metatrade_trade.profit,
+            profit=profit,
+            total_amount=metatrade_trade.profit * quantity,
+            trade_date=trade_date
+        )
 
     def save(self, *args, **kwargs):
         # Calculate total amount if not provided
