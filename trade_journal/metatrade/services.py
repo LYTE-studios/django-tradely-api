@@ -174,4 +174,4 @@ class MetaApiService:
         
         loop.create_task(service.refresh_caches(user))
         trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
-        return [ManualTrade.from_metatrade(trade).to_dict() for trade in trades]
+        return [ManualTrade.from_metatrade(trade) for trade in trades]

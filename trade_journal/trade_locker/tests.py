@@ -1,98 +1,73 @@
-from unittest.mock import patch
-from django.contrib.auth import get_user_model
+from django.test import TestCase
 from django.urls import reverse
-from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework import status
+from unittest.mock import patch
+from users.models import CustomUser
 from .models import TraderLockerAccount
+from .services import TradeLockerService
 
-User = get_user_model()
+class TradeLockerServiceTests(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username='testuser',
+            email='test@test.com',
+            password='testpass123'
+        )
+        self.trade_locker_account = TraderLockerAccount.objects.create(
+            user=self.user,
+            email='test@test.com',
+            refresh_token='test_token',
+            demo_status=True
+        )
 
-class TraderLockerAccountViewSetTests(APITestCase):
-    def setUp(self): 
-        self.user = User.objects.create_user(username='user1', email='tanguy@lytestudios.be', password='!8fX5vOF')
-        self.client.force_authenticate(user=self.user)
+    @patch('trade_locker.services.TradeLockerService._refresh_access_token')
+    def test_refresh_account(self, mock_refresh_token):
+        mock_refresh_token.return_value = 'new_access_token'
 
-    correct_user_data = {
-        'email': 'tanguy@lytestudios.be',
-        'password': '!8fX5vOF',
-        'server': 'OSP-DEMO',
-        'account_name': 'test_account',
-        'demo_status': True,
-    }
-
-    @patch('trade_locker.views.authenticate')
-    def test_login_success(self, mock_authenticate):
-        mock_authenticate.return_value = ('mock_access_token', 'mock_refresh_token')
-        user_data = self.correct_user_data
-
-        response = self.client.post(reverse('locker_login'), user_data)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'], 'Login successful.')
-
-        # Verify user and trader locker account creation
-        user = User.objects.get(email='tanguy@lytestudios.be')
-        trader_account = TraderLockerAccount.objects.get(user=user)
-        self.assertEqual(trader_account.email, 'tanguy@lytestudios.be')
-        self.assertEqual(trader_account.refresh_token, 'mock_refresh_token')
-
-    @patch('trade_locker.views.authenticate')
-    def test_login_invalid_credentials(self, mock_authenticate):
-        mock_authenticate.return_value = (None, None)
-        user_data = self.correct_user_data
+        service = TradeLockerService()
+        result = service.refresh_account(self.trade_locker_account)
         
-        response = self.client.post(reverse('locker_login'), user_data)
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data['error'], "Invalid credentials or server information.")
-
-
-class FetchTradesViewTests(APITestCase):
-    def setUp(self): 
-        self.user = User.objects.create_user(username='user1', email='tanguy@lytestudios.be', password='!8fX5vOF')
-        self.client.force_authenticate(user=self.user)
-
-    @patch('trade_locker.views.refresh_access_token')
-    @patch('trade_locker.views.fetch_all_account_numbers')
-    @patch('trade_locker.views.fetch_orders_history')
-    def test_fetch_trades_success(self, mock_fetch_orders_history, mock_fetch_all_account_numbers, mock_refresh_access_token):
-        user = User.objects.create(email='test@example.com')
-        TraderLockerAccount.objects.create(
-            user=user,
-            email='test@example.com',
-            refresh_token='mock_refresh_token'
+        self.assertTrue(result['success'])
+        mock_refresh_token.assert_called_once_with(
+            self.trade_locker_account.refresh_token,
+            self.trade_locker_account.demo_status
         )
 
-        mock_refresh_access_token.return_value = 'mock_access_token'
-        mock_fetch_all_account_numbers.return_value = [{'accNum': '123', 'id': 'acc_id'}]
-        mock_fetch_orders_history.return_value = []  # Or add some mock order data if needed
+    @patch('trade_locker.services.TradeLockerService.fetch_orders_history')
+    def test_fetch_trades(self, mock_fetch_orders):
+        mock_fetch_orders.return_value = [
+            {
+                'order_id': '123',
+                'amount': 100,
+                'profit': 50
+            }
+        ]
 
-        response = self.client.post(reverse('fetch_trades'), {'email': 'test@example.com'})
+        trades = TradeLockerService.fetch_trades(self.user)
+        
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0]['order_id'], '123')
+
+class TradeLockerViewsTests(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username='testuser',
+            email='test@test.com',
+            password='testpass123'
+        )
+        self.client.force_authenticate(user=self.user)
+        self.trade_locker_account = TraderLockerAccount.objects.create(
+            user=self.user,
+            email='test@test.com',
+            refresh_token='test_token',
+            demo_status=True
+        )
+
+    @patch('trade_locker.views.TradeLockerService.refresh_all_accounts')
+    def test_refresh_accounts(self, mock_refresh):
+        mock_refresh.return_value = {'success': True}
+        response = self.client.post(reverse('refresh-trade-locker-accounts'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('email', response.data)
-        self.assertIn('orders_history', response.data)
-
-    @patch('trade_locker.views.refresh_access_token')
-    def test_fetch_trades_account_does_not_exist(self, mock_refresh_access_token):
-        mock_refresh_access_token.return_value = 'mock_access_token'
-
-        response = self.client.post(reverse('fetch_trades'), {'email': 'nonexistent@example.com'})
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data['detail'], "No TraderLockerAccount matches the given query.")  # Updated error message
-    @patch('trade_locker.views.refresh_access_token')
-    def test_fetch_trades_refresh_token_invalid(self, mock_refresh_access_token):
-        user = User.objects.create(email='test@example.com')
-        TraderLockerAccount.objects.create(
-            user=user,
-            email='test@example.com',
-            refresh_token='mock_refresh_token'
-        )
-
-        mock_refresh_access_token.return_value = None  # Simulate invalid refresh token
-
-        response = self.client.post(reverse('fetch_trades'), {'email': 'test@example.com'})
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data['error'], "Failed to refresh access token.")
+        self.assertTrue(response.data['success'])
