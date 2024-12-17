@@ -214,6 +214,47 @@ class TradeService:
             print(f"Error fetching meta trades: {str(e)}")
         
         return trades
+    
+    @staticmethod
+    def calculate_day_of_week_distribution(trades: List[Dict]) -> Dict[str, float]:
+        """
+        Calculates the distribution of trades across days of the week,
+        normalized to a 0-1 scale where the most frequent day is 1.0
+        """
+        # Initialize counters for each day
+        day_counts = {
+            'Monday': 0,
+            'Tuesday': 0,
+            'Wednesday': 0,
+            'Thursday': 0,
+            'Friday': 0,
+            'Saturday': 0,
+            'Sunday': 0
+        }
+
+        # Count trades for each day
+        for trade in trades:
+            trade_date = trade.get('trade_date') or trade.get('open_time')
+            if trade_date:
+                if isinstance(trade_date, str):
+                    trade_date = datetime.fromisoformat(trade_date.replace('Z', '+00:00'))
+                day_name = trade_date.strftime('%A')
+                day_counts[day_name] += 1
+
+        # Find the maximum count to normalize
+        max_count = max(day_counts.values()) if day_counts.values() else 1
+
+        # Normalize to 0-1 scale
+        day_distribution = {
+            day: count / max_count if max_count > 0 else 0
+            for day, count in day_counts.items()
+        }
+
+        return {
+            'distribution': day_distribution,
+            'raw_counts': day_counts,
+            'total_trades': sum(day_counts.values())
+        }
 
     @staticmethod
     def calculate_statistics(trades: List[Dict]) -> Dict:
@@ -281,6 +322,8 @@ class TradeService:
             monthly_stats[month_key]['total_profit'] += Decimal(str(trade.get('profit', 0)))
             monthly_stats[month_key]['total_invested'] += Decimal(str(trade.get('total_amount', 0)))
 
+        day_of_week_analysis = TradeService.calculate_day_of_week_distribution(trades)
+
         return {
             'overall_statistics': {
                 'total_trades': total_trades,
@@ -289,7 +332,8 @@ class TradeService:
                 'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0
             },
             'symbol_performances': list(symbol_stats.values()),
-            'monthly_summary': list(monthly_stats.values())
+            'monthly_summary': list(monthly_stats.values()),
+            'day_of_week_analysis': day_of_week_analysis,
         }
 
     @staticmethod
