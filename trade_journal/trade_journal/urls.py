@@ -41,4 +41,5 @@ urlpatterns = [
     path('api/payments/', include('payments.urls')),
     path('api/metatrade/', include('metatrade.urls')),
     path('api/trade_locker/', include('trade_locker.urls')),
+    path('api/c_trader/', include('ctrader.urls')),
 ]

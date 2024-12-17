@@ -1,104 +1,155 @@
-from django.test import TestCase
+# trade_journal/metatrade/tests.py
+from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
+import asyncio
+
 from django.contrib.auth import get_user_model
-from django.conf import settings
-from .services import MetaApiService
+from django.test import AsyncClient, TestCase
+from django.utils import timezone
+from rest_framework.test import APIClient, APITestCase
+from django.urls import reverse
+from rest_framework import status
+
+from users.models import CustomUser
 from .models import MetaTraderAccount, Trade
-from datetime import datetime
-import logging
+from .services import MetaApiService
 
 User = get_user_model()
-logger = logging.getLogger(__name__)
 
-class MetaApiServiceProductionTest(TestCase):
-    """
-    To run these tests specifically:
-    python manage.py test trade_journal.metatrade.tests.MetaApiServiceProductionTest
-    """
-
-    user: User
-    account: MetaTraderAccount
-
+class MetaTraderAccountViewSetTest(APITestCase):
     def setUp(self):
-        self.account = MetaTraderAccount.objects.first()
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='user1', email='user1@example.com', password='password')
+        self.client.force_authenticate(user=self.user)
+        self.account = MetaTraderAccount.objects.create(
+            user=self.user,
+            account_id='12345',
+            email='user1@example.com',
+            password=b'encrypted_password',
+            key_code=b'key_code',
+            server='server_name',
+            account_name='account_name'
+        )
 
-        if(self.account is None):
-            raise ValueError("No test account found. Please set up a test account first.")
+    def test_delete_account(self):
+        url = reverse('delete_account', kwargs={'account_id': self.account.id})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], 'Account deleted.')
+        self.assertFalse(MetaTraderAccount.objects.filter(id=self.account.id).exists())
+
+    @patch('metatrade.views.MetaApi')
+    @patch('metatrade.views.encrypt_password')
+    @patch('metatrade.services.MetaApiService.refresh_caches')
+    def test_login_account(self, mock_refresh_caches, mock_encrypt_password, MockMetaApi):
+        mock_encrypt_password.return_value = b'encrypted_password'
+        mock_refresh_caches.return_value = None
         
-        self.user = User.objects.first()
-        logger.info(f"Testing account: {self.account.account_name} (ID: {self.account.account_id})")
+        mock_meta_api = MockMetaApi.return_value
+        mock_meta_account = MagicMock()
+        mock_meta_account.id = '12345'
+        mock_meta_account.name = 'test_account'
 
-    def test_live_account_connection(self):
-        """Test connecting to a live MetaTrader account"""
-        try:
-            # Fetch accounts (this triggers refresh)
-            accounts = MetaApiService.fetch_accounts(self.user)
-            self.assertTrue(len(accounts) > 0, "No accounts returned")
-            
-            # Refresh account from database
-            self.account.refresh_from_db()
-            logger.info(f"Balance updated from {self.initial_balance} to {self.account.balance}")
-            
-            # Verify cache timestamps
-            self.assertIsNotNone(self.account.cached_at, "Cache timestamp not set")
-            self.assertGreater(self.account.cached_until, datetime.now(), "Cache expiration incorrect")
-            
-            # Test trade fetching
-            trades = MetaApiService.fetch_trades(self.user)
-            logger.info(f"Found {len(trades)} trades")
-            
-            # Validate trades
-            for trade in trades:
-                self.assertEqual(trade['account_id'], self.account.id)
-                self.assertIsInstance(trade['profit'], (int, float))
-                self.assertIsInstance(trade['volume'], (int, float))
-                self.assertTrue(trade['symbol'], "Trade symbol missing")
+        async def async_create_account(*args, **kwargs):
+            return mock_meta_account
+        
+        mock_meta_api.metatrader_account_api.create_account = async_create_account
 
-        except Exception as e:
-            logger.error(f"Production test failed: {str(e)}")
-            raise
+        url = reverse('metatrade_login')
+        data = {
+            'server_name': 'server_name',
+            'username': 'user1@example.com',
+            'password': 'password',
+            'platform': 'mt4',
+            'account_name': 'test_account'
+        }
 
-    def test_trade_history_consistency(self):
-        """Test trade history data consistency"""
-        try:
-            # Fetch trades twice
-            trades1 = MetaApiService.fetch_trades(self.user)
-            trades2 = MetaApiService.fetch_trades(self.user)
-            
-            # Compare results
-            self.assertEqual(len(trades1), len(trades2), 
-                           "Inconsistent trade counts between fetches")
-            
-            # Check trade details consistency
-            trades_dict1 = {t['trade_id']: t for t in trades1}
-            trades_dict2 = {t['trade_id']: t for t in trades2}
-            
-            self.assertEqual(trades_dict1.keys(), trades_dict2.keys(), 
-                           "Trade IDs don't match between fetches")
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], 'Login successful.')
 
-        except Exception as e:
-            logger.error(f"Trade history consistency test failed: {str(e)}")
-            raise
+    @patch('metatrade.views.MetaApi')
+    def test_login_account_api_error(self, MockMetaApi):
+        mock_meta_api = MockMetaApi.return_value
+        
+        class MetaApiError(Exception):
+            def __str__(self):
+                return "API error"
+        
+        async def async_error(*args, **kwargs):
+            raise MetaApiError()
+        
+        mock_meta_api.metatrader_account_api.create_account = async_error
 
-    def test_cache_mechanism(self):
-        """Test the caching mechanism"""
-        try:
-            # First fetch to set cache
-            MetaApiService.fetch_accounts(self.user)
-            self.account.refresh_from_db()
-            first_cache_time = self.account.cached_at
-            
-            # Immediate second fetch shouldn't update cache
-            MetaApiService.fetch_accounts(self.user)
-            self.account.refresh_from_db()
-            
-            self.assertEqual(self.account.cached_at, first_cache_time, 
-                           "Cache updated too soon")
+        url = reverse('metatrade_login')
+        data = {
+            'server_name': 'server_name',
+            'username': 'user1@example.com',
+            'password': 'password',
+            'platform': 'platform'
+        }
+        
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], "API error")
 
-        except Exception as e:
-            logger.error(f"Cache mechanism test failed: {str(e)}")
-            raise
+class MetaApiServiceTests(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username='testuser',
+            email='test@test.com',
+            password='testpass123'
+        )
+        self.meta_account = MetaTraderAccount.objects.create(
+            user=self.user,
+            account_id='test123',
+            balance=1000
+        )
 
-    def tearDown(self):
-        # This runs after each test method
-        logger.info(f"Test completed for account: {self.account.account_id}")
+    @patch('metatrade.services.MetaApi')
+    def test_refresh_account(self, mock_meta_api):
+        service = MetaApiService()
+        
+        mock_meta_api_instance = MagicMock()
+        mock_meta_api.return_value = mock_meta_api_instance
+        
+        mock_account = MagicMock()
+        mock_meta_api_instance.metatrader_account_api.get_account.return_value = mock_account
+        
+        mock_connection = MagicMock()
+        mock_account.get_rpc_connection.return_value = mock_connection
+        mock_connection.get_account_information.return_value = {'balance': 2000}
 
+        with patch.object(service, 'get_meta_trades', return_value=[]):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(service.refresh_account(self.meta_account, self.user))
+            loop.close()
+
+        self.meta_account.refresh_from_db()
+        self.assertEqual(self.meta_account.balance, 2000)
+
+    def test_cache_manager(self):
+        account = self.meta_account
+        account.cached_at = timezone.now() - timedelta(minutes=40)
+        account.cached_until = timezone.now() - timedelta(minutes=10)
+        account.save()
+
+        service = MetaApiService()
+        self.assertTrue(service.cache_manager.needs_refresh(
+            account.cached_at,
+            account.cached_until
+        ))
+
+    @patch('metatrade.services.MetaApiService.refresh_caches_sync')
+    def test_fetch_trades(self, mock_refresh):
+        Trade.objects.create(
+            user=self.user,
+            account_id=self.meta_account.account_id,
+            trade_id='trade1',
+            profit=100
+        )
+
+        trades = MetaApiService.fetch_trades(self.user)
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0]['profit'], 100)

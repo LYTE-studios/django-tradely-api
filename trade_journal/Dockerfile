@@ -9,4 +9,4 @@ RUN pipenv sync
 EXPOSE 8000
 
 # Command to run the Python script
-CMD ["pipenv", "run", "gunicorn", "-b", "0.0.0.0:8000", "trade_journal.wsgi:application"]
+CMD ["pipenv", "run", "gunicorn", "-b", "0.0.0.0:8000", "trade_journal.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--timeout", "120"]

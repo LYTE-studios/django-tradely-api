@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -42,28 +42,15 @@ class MetaTraderAccount(models.Model):
 class Trade(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     account_id = models.CharField(max_length=255, null=True)
+    trade_id = models.CharField(max_length=255, null=True)
+    symbol = models.CharField(max_length=255, null=True)
     volume = models.FloatField(default=0, null=True, blank=True)
     duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
     profit = models.FloatField(default=0, null=True, blank=True)
     gain = models.FloatField(default=0, null=True, blank=True)
     success = models.CharField(max_length=255, null=True, blank=True)
-    open_time = models.CharField(max_length=255, null=True, blank=True)
+    open_time = models.DateTimeField(blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'account_id': self.account_id,
-            'trade_id': self.trade_id,
-            'symbol': self.symbol,
-            'volume': self.volume,
-            'price_open': self.price_open,
-            'price_close': self.price_close,
-            'profit': self.profit,
-            'create_time': self.create_time.isoformat() if self.create_time else None,
-            'close_time': self.close_time.isoformat() if self.close_time else None,
-        }
-
     def __str__(self):
-        return f'Trade {self.trade_id} for user {self.account_id}'
+        return f'Trade {self.id} for user {self.account_id}'

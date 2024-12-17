@@ -20,6 +20,8 @@ django-cors-headers = "*"
 cryptography = "*"
 sentry-sdk = "*"
 pytest = "*"
+coverage = "*"
+uvicorn = "*"
 
 [dev-packages]
 
