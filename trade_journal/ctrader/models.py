@@ -15,6 +15,7 @@ class CTraderAccount(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     demo_status = models.BooleanField(default=True)  # demo mode status
     balance = models.FloatField(default=0)
+    account_name = models.CharField(null=True)
 
     def to_dict(self):
         return {
@@ -24,7 +25,8 @@ class CTraderAccount(models.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'balance': self.balance
+            'balance': self.balance,
+            'account_name': self.account_name,
         }
 
     def __str__(self):

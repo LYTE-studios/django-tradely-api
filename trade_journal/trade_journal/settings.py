@@ -96,7 +96,8 @@ INSTALLED_APPS = [
     'users',
     'payments',
     'metatrade',
-    'trade_locker'
+    'trade_locker',
+    'ctrader',
 ]
 
 MIDDLEWARE = [

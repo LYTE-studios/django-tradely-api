@@ -41,7 +41,6 @@ class CTraderAccountViewSet(viewsets.ModelViewSet):
         sender_id = request.data.get('account')
         password = request.data.get('password')
         server = request.data.get('server')
-        demo_status = request.data.get('demo_status', True)
         account_name = request.data.get('account_name')
 
         # Authenticate and get tokens
@@ -55,6 +54,7 @@ class CTraderAccountViewSet(viewsets.ModelViewSet):
                     'server': server,
                     'password': encrypt_password(password),
                     'key_code': KEY,
+                    'account_name': account_name
                 }
             )
 
