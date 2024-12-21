@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
 import requests
+from django.utils import timezone
 from django.contrib.auth import authenticate
 from django.db import transaction
 from django.db.models import Sum
@@ -144,7 +145,22 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return TradeNote.objects.filter(user=self.request.user)
+        # Base queryset filtered by user
+        queryset = TradeNote.objects.filter(user=self.request.user)
+        
+        # Check if date parameter is provided in the request
+        date_param = self.request.query_params.get('date', None)
+        if date_param:
+            try:
+                # Convert the date string to a date object
+                date = timezone.datetime.strptime(date_param, '%Y-%m-%d').date()
+                # Filter queryset by the specific date
+                queryset = queryset.filter(date=date)
+            except ValueError:
+                # Handle invalid date format
+                return TradeNote.objects.none()
+        
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

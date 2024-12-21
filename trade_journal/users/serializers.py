@@ -116,6 +116,7 @@ class TradeNoteSerializer(serializers.ModelSerializer):
         model = TradeNote
         fields = ['id', 'user', 'trade', 'trade_note', 'note_date', 'created_at', 'updated_at']
         read_only_fields = ['user']
+
     def validate(self, data):
         # If no trade is provided during update, keep the existing trade
         if not data.get('trade') and not data.get('note_date'):
@@ -135,4 +136,6 @@ class TradeNoteSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user:
             validated_data['user'] = request.user
-        return super().create(validated_data)
+
+        return TradeNote.objects.update_or_create(note_date=validated_data['note_date'], user=validated_data['user'], 
+                                                  trade=validated_data['trade'], defaults=validated_data)
