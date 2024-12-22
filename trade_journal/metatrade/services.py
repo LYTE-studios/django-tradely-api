@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
 import asyncio
+import logging
 from functools import wraps
+from datetime import datetime, timedelta
 from typing import Optional
 from django.utils import timezone
 from asgiref.sync import async_to_sync, sync_to_async
@@ -8,7 +9,7 @@ from metaapi_cloud_sdk import MetaApi, MetaStats
 from trade_journal.my_secrets import meta_api_key
 from users.models import ManualTrade
 from .models import MetaTraderAccount, Trade
-import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,6 @@ class CacheManager:
             return True
         return cached_until <= timezone.now()
 
-
 def ensure_event_loop(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -32,9 +32,7 @@ def ensure_event_loop(func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         return func(*args, **kwargs, loop=loop)
-
     return wrapper
-
 
 class MetaApiService:
     def __init__(self):
@@ -52,9 +50,9 @@ class MetaApiService:
             try:
                 await asyncio.wait_for(self._meta_api.close(), timeout=5)
             except asyncio.TimeoutError:
-                print("Timeout while closing MetaApi connection")
+                logger.error("Timeout while closing MetaApi connection")
             except Exception as e:
-                print(f"Error closing MetaApi connection: {str(e)}")
+                logger.error(f"Error closing MetaApi connection: {str(e)}")
             finally:
                 self._meta_api = None
 
@@ -85,6 +83,20 @@ class MetaApiService:
             logger.error(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
 
+    async def fetch_account_information(self, auth_token, account_id):
+        url = f"https://mt-client-api-v1.new-york.agiliumtrade.ai/users/current/accounts/{account_id}/account-information"
+        headers = {
+            "Auth-Token": f"{auth_token}"
+        }
+        params = {
+            "refreshTerminalState": "true"
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, params=params)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            return response.json()
+
     async def refresh_account(self, account, user):
         try:
             meta_api = await self.get_meta_api()
@@ -100,7 +112,8 @@ class MetaApiService:
             # Update account information
             connection = meta_account.get_rpc_connection()
             await connection.connect()
-            account_information = await connection.get_account_information()
+            account_information = await self.fetch_account_information(meta_api_key, account.account_id)
+
             await connection.close()
             await meta_account.undeploy()
 
@@ -108,7 +121,7 @@ class MetaApiService:
             await self.update_account_cache(account, account_information['balance'])
 
         except Exception as e:
-            print(f"Error refreshing account {account.account_id}: {str(e)}")
+            logger.error(f"Error refreshing account {account.account_id}: {str(e)}")
             raise
 
     async def update_trades(self, meta_trades, user, account_id):
@@ -160,7 +173,7 @@ class MetaApiService:
         try:
             async_to_sync(service.refresh_caches)(user, force_refresh=force_refresh)
         except Exception as e:
-            print(f"Error in refresh_caches_sync: {str(e)}")
+            logger.error(f"Error in refresh_caches_sync: {str(e)}")
             raise
         finally:
             # Ensure we clean up any remaining connections
@@ -184,6 +197,6 @@ class MetaApiService:
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
 
-        loop.create_task(service.refresh_caches(user))
+        async_to_sync(service.refresh_caches)(user)
         trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
         return [ManualTrade.from_metatrade(trade) for trade in trades]
