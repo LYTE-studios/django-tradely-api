@@ -137,5 +137,6 @@ class TradeNoteSerializer(serializers.ModelSerializer):
         if request and request.user:
             validated_data['user'] = request.user
 
-        return TradeNote.objects.update_or_create(note_date=validated_data['note_date'], user=validated_data['user'], 
-                                                  trade=validated_data['trade'], defaults=validated_data)
+        note, created = TradeNote.objects.update_or_create(note_date=validated_data['note_date'], user=validated_data['user'], defaults=validated_data)
+
+        return note

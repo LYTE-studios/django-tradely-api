@@ -63,7 +63,7 @@ class TradeService:
             print(f"Error fetching trade locker accounts: {str(e)}")
         # get CTrader accounts
         try:
-            c_trader_accounts = CtraderService.fetch_accounts(user)
+            c_trader_accounts = CTraderService.fetch_accounts(user)
             accounts_summary['c_trader_accounts'] = c_trader_accounts
             c_trader_balance = sum(Decimal(str(account.get('balance', 0))) for account in c_trader_accounts)
             accounts_summary['total_balance'] += c_trader_balance
@@ -190,25 +190,29 @@ class TradeService:
         return refresh_summary
     
     @staticmethod
-    def get_all_trades(user) -> List[Dict]:
+    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None) -> List[Dict]:
         """
         Fetches all trades from different sources and normalizes them
         """
         trades = []
         
         # Get manual trades
-        manual_trades = ManualTrade.objects.filter(account__user=user)
+        if from_date and to_date:
+            manual_trades = ManualTrade.objects.filter(account__user=user, trade_date__gte=from_date, trade_date__lte=to_date)
+        else:
+            manual_trades = ManualTrade.objects.filter(account__user=user)  
+
         trades.extend([trade.to_dict() for trade in manual_trades])
         
         # Get MetaAPI trades
         try:
-            meta_trades = [trade.to_dict() for trade in MetaApiService.fetch_trades(user=user)]
+            meta_trades = [trade.to_dict() for trade in MetaApiService.fetch_trades(user=user, from_time=from_date, to_time=to_date)]
             trades.extend(meta_trades)
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")
         # Get C Trader trades
         try:
-            meta_trades = [trade.to_dict() for trade in CtraderService.fetch_trades(user=user)]
+            meta_trades = [trade.to_dict() for trade in CTraderService.fetch_trades(user=user, from_time=from_date, to_time=to_date)]
             trades.extend(meta_trades)
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")

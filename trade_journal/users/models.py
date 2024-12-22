@@ -2,12 +2,10 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
     date_of_birth = models.DateField(null=True, blank=True)
-
 
 class TradeAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_accounts')
@@ -51,7 +49,18 @@ class ManualTrade(models.Model):
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
-
+    @staticmethod
+    def from_c_trade(c_trade):
+        return ManualTrade(
+            trade_type=c_trade.side,
+            symbol=c_trade.name,
+            quantity=c_trade.amount,
+            price=c_trade.price,
+            profit=c_trade.actual_price - c_trade.price,
+            total_amount=c_trade.amount * c_trade.price,
+            trade_date=c_trade.open_time
+        )
+    
     @staticmethod
     def from_metatrade(metatrade_trade):
 

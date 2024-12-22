@@ -43,6 +43,7 @@ class CTrade(models.Model):
     actual_price = models.FloatField(null=True, blank=True)
     pos_id = models.CharField(max_length=255, null=True, blank=True)
     clid = models.CharField(max_length=255, null=True, blank=True)
+    open_time = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f'Trade {self.id} for user {self.user_id}'
