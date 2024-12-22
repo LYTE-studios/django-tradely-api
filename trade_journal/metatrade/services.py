@@ -8,7 +8,9 @@ from metaapi_cloud_sdk import MetaApi, MetaStats
 from trade_journal.my_secrets import meta_api_key
 from users.models import ManualTrade
 from .models import MetaTraderAccount, Trade
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CacheManager:
     def __init__(self, cache_duration: int = 30):
@@ -67,14 +69,21 @@ class MetaApiService:
             }
         })
 
-        return await asyncio.wait_for(
-            meta_stats.get_account_trades(
-                account_id,
-                start_time=datetime.now() - timedelta(days=365),
-                end_time=datetime.now() + timedelta(days=365)
-            ),
-            timeout=30
-        )
+        try:
+            return await asyncio.wait_for(
+                meta_stats.get_account_trades(
+                    account_id,
+                    start_time=datetime.now() - timedelta(days=365),
+                    end_time=datetime.now() + timedelta(days=365)
+                ),
+                timeout=30
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout while fetching trades for account {account_id}")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching trades for account {account_id}: {str(e)}")
+            return []
 
     async def refresh_account(self, account, user):
         try:

@@ -15,7 +15,7 @@ class CTraderAccount(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     demo_status = models.BooleanField(default=True)  # demo mode status
     balance = models.FloatField(default=0)
-    account_name = models.CharField(null=True)
+    account_name = models.CharField(null=True, max_length=255)
 
     def to_dict(self):
         return {
