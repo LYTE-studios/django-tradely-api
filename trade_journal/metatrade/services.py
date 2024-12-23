@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import logging
 from functools import wraps
+from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 from typing import Optional
 from django.utils import timezone
@@ -9,6 +11,7 @@ from metaapi_cloud_sdk import MetaApi, MetaStats
 from trade_journal.my_secrets import meta_api_key
 from users.models import ManualTrade
 from .models import MetaTraderAccount, Trade
+import httpx
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -52,6 +55,7 @@ class MetaApiService:
             except asyncio.TimeoutError:
                 logger.error("Timeout while closing MetaApi connection")
             except Exception as e:
+                logger.error(f"Error closing MetaApi connection: {str(e)}")
                 logger.error(f"Error closing MetaApi connection: {str(e)}")
             finally:
                 self._meta_api = None
@@ -97,6 +101,20 @@ class MetaApiService:
             response.raise_for_status()  # Raise an exception for HTTP errors
             return response.json()
 
+    async def fetch_account_information(self, auth_token, account_id):
+        url = f"https://mt-client-api-v1.new-york.agiliumtrade.ai/users/current/accounts/{account_id}/account-information"
+        headers = {
+            "Auth-Token": f"{auth_token}"
+        }
+        params = {
+            "refreshTerminalState": "true"
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, params=params)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            return response.json()
+
     async def refresh_account(self, account, user):
         try:
             meta_api = await self.get_meta_api()
@@ -119,6 +137,7 @@ class MetaApiService:
             await self.update_account_cache(account, account_information['balance'])
 
         except Exception as e:
+            logger.error(f"Error refreshing account {account.account_id}: {str(e)}")
             logger.error(f"Error refreshing account {account.account_id}: {str(e)}")
             raise
 
@@ -172,6 +191,7 @@ class MetaApiService:
             async_to_sync(service.refresh_caches)(user, force_refresh=force_refresh)
         except Exception as e:
             logger.error(f"Error in refresh_caches_sync: {str(e)}")
+            logger.error(f"Error in refresh_caches_sync: {str(e)}")
             raise
         finally:
             # Ensure we clean up any remaining connections
@@ -195,6 +215,7 @@ class MetaApiService:
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
 
+        async_to_sync(service.refresh_caches)(user)
         async_to_sync(service.refresh_caches)(user)
         trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
         return [ManualTrade.from_metatrade(trade) for trade in trades]
