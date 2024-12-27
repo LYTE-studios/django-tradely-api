@@ -39,17 +39,16 @@ def with_event_loop(f):
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    @with_event_loop
-    async def delete(self, request, *args, **kwargs):
+    def delete(self, request, *args, **kwargs):
         account_id = kwargs['account_id']
 
         if not account_id:
             return Response({'error': 'All fields are required: account_id.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        account = await sync_to_async(MetaTraderAccount.objects.get)(id=account_id)
+        account = MetaTraderAccount.objects.get(id=account_id)
 
-        await sync_to_async(account.delete)()
+        account.delete()
 
         return Response({
             'message': 'Account deleted.'
@@ -98,12 +97,6 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                     {'error': 'Failed to save account information'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-
-            try:
-                MetaApiService.refresh_caches_sync(user=user)
-                logger.info("Successfully refreshed caches")
-            except Exception as cache_error:
-                logger.warning(f"Cache refresh failed (non-critical): {str(cache_error)}")
 
             return Response({
                 'message': 'Login successful.',

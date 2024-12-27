@@ -221,9 +221,52 @@ class ComprehensiveTradeStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        trades = TradeService.get_all_trades(request.user)
-        statistics = TradeService.calculate_statistics(trades)
+        from_date = request.query_params.get('from')
+        until_date = request.query_params.get('to')
+
+        parsed_from_date = None
+        parsed_until_date = None
+        
+        if from_date and until_date:
+            parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
+            parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
+            
+        # Fetch trades using the service method with optional datetime filtering
+        trades = TradeService.get_all_trades(
+            request.user, 
+            from_date=parsed_from_date,  
+            to_date=parsed_until_date
+        )
+        
+        accounts = TradeService.get_all_accounts(request.user)
+        statistics = TradeService.calculate_statistics(trades, accounts)
         return Response(statistics)
+    
+class AccountBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        # Get the from and to dates from the request query parameters
+        from_date = request.query_params.get('from')
+        until_date = request.query_params.get('to')
+
+        # Parse datetime parameters
+        parsed_from_date = None
+        parsed_until_date = None
+
+        if from_date and until_date:
+            parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
+            parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
+
+        # Fetch trades using the service method with optional datetime filtering
+        balance_chart = TradeService.get_account_balance_chart(
+            request.user, 
+            from_date=parsed_from_date, 
+            to_date=parsed_until_date
+        )
+
+        return Response(balance_chart)
 
 class LeaderBoardView(APIView):
     permission_classes = [IsAuthenticated]

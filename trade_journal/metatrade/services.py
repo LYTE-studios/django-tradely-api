@@ -48,20 +48,7 @@ class MetaApiService:
             self._meta_api = MetaApi(meta_api_key)
         return self._meta_api
 
-    async def close_meta_api(self):
-        if self._meta_api:
-            try:
-                await asyncio.wait_for(self._meta_api.close(), timeout=5)
-            except asyncio.TimeoutError:
-                logger.error("Timeout while closing MetaApi connection")
-            except Exception as e:
-                logger.error(f"Error closing MetaApi connection: {str(e)}")
-                logger.error(f"Error closing MetaApi connection: {str(e)}")
-            finally:
-                self._meta_api = None
-
     async def get_meta_trades(self, account_id: str):
-        meta_api = await self.get_meta_api()
         meta_stats = MetaStats(meta_api_key, {
             'requestTimeout': 60000,
             'retryOpts': {
@@ -148,7 +135,7 @@ class MetaApiService:
             await sync_to_async(Trade.objects.update_or_create)(
                 user=user,
                 account_id=account_id,
-                trade_id=trade['_id'],
+                trade_id=str(trade['_id']).split('+')[1],
                 defaults={
                     'volume': trade['volume'],
                     'symbol': trade['symbol'],
@@ -169,16 +156,13 @@ class MetaApiService:
 
     async def refresh_caches(self, user, force_refresh=False):
         async with self._refresh_lock:
-            try:
-                accounts = await sync_to_async(MetaTraderAccount.objects.filter)(user=user)
-                async for account in accounts:
-                    if not force_refresh and not self.cache_manager.needs_refresh(
-                            account.cached_at, account.cached_until
-                    ):
-                        continue
-                    await self.refresh_account(account, user)
-            finally:
-                await self.close_meta_api()
+            accounts = await sync_to_async(MetaTraderAccount.objects.filter)(user=user)
+            async for account in accounts:
+                if not force_refresh and not self.cache_manager.needs_refresh(
+                        account.cached_at, account.cached_until
+                ):
+                    continue
+                await self.refresh_account(account, user)
 
     @staticmethod
     def refresh_caches_sync(user, force_refresh=False):
@@ -192,10 +176,6 @@ class MetaApiService:
         except Exception as e:
             logger.error(f"Error in refresh_caches_sync: {str(e)}")
             raise
-        finally:
-            # Ensure we clean up any remaining connections
-            if service._meta_api:
-                async_to_sync(service.close_meta_api)()
 
     @staticmethod
     @ensure_event_loop
@@ -209,13 +189,18 @@ class MetaApiService:
 
     @staticmethod
     @ensure_event_loop
-    def fetch_trades(user, loop=None):
+    def fetch_trades(user,from_time: datetime = None, to_time: datetime = None, loop=None):
         service = MetaApiService()
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
 
         loop.create_task(service.refresh_caches(user))
-        trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
+
+        if from_time and to_time:
+            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], open_time__gte=from_time, open_time__lte=to_time)      
+        else:
+            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
+        
         return [ManualTrade.from_metatrade(trade) for trade in trades]
     
     @staticmethod

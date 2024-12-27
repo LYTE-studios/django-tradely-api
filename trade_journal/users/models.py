@@ -35,6 +35,7 @@ class ManualTrade(models.Model):
     trade_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
 
     def to_dict(self):
         return {
@@ -47,7 +48,8 @@ class ManualTrade(models.Model):
             'total_amount': self.total_amount,
             'trade_date': self.trade_date,
             'created_at': self.created_at,
-            'updated_at': self.updated_at
+            'updated_at': self.updated_at,
+            'duration_in_minutes': self.duration_in_minutes,
         }
     @staticmethod
     def from_c_trade(c_trade):
@@ -88,7 +90,8 @@ class ManualTrade(models.Model):
             price=metatrade_trade.profit,
             profit=profit,
             total_amount=metatrade_trade.profit * quantity,
-            trade_date=trade_date
+            trade_date=trade_date,
+            duration_in_minutes=metatrade_trade.duration_in_minutes
         )
 
     def save(self, *args, **kwargs):

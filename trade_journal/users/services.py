@@ -1,13 +1,67 @@
 from typing import List, Dict
 from decimal import Decimal
 from django.db.models import Sum
-from datetime import datetime
+from datetime import datetime, timedelta
 from metatrade.services import MetaApiService
 from ctrader.services import CTraderService
 from trade_locker.services import TradeLockerService
 from .models import ManualTrade, CustomUser, TradeAccount
+from dateutil.parser import parse
+from django.utils import timezone
 
 class TradeService:
+
+    @staticmethod
+    def get_account_balance_chart(user, from_date: datetime = None, to_date: datetime = None) -> Dict:
+        """
+        Gets a balance chart for the given user
+        """
+        trades = TradeService.get_all_trades(user, from_date, to_date)
+
+        if not trades:
+            return {}   
+
+        # Calculate initial total balance
+        accounts = TradeService.get_all_accounts(user)
+        balance = sum(Decimal(str(account.get('balance', 0))) for account in accounts['accounts'])
+
+        initial_balance = balance + sum(Decimal(str(trade.get('profit', 0))) for trade in trades)
+
+        # Sort trades chronologically
+        trades.sort(key=lambda x: parse(x['trade_date']))
+
+        # If from_date and to_date are not provided, use trade date range
+        if not from_date:
+            from_date = parse(trades[0]['trade_date'])
+        if not to_date:
+            to_date = timezone.now()
+
+        # Create 100 time points between from_date and to_date
+        time_interval = (to_date - from_date) / 100
+        balance_chart = {}
+
+        # Track balance at each point
+        current_balance = initial_balance
+        for i in range(100):
+            current_date = from_date + time_interval * i
+
+            # Find trades up to this point
+            trades_up_to_point = [
+                trade for trade in trades 
+                if parse(trade['trade_date']) <= current_date
+            ]
+
+            # Calculate cumulative profit/loss
+            cumulative_profit = sum(
+                Decimal(str(trade.get('profit', 0))) for trade in trades_up_to_point
+            )
+
+            # Update balance
+            balance_at_point = initial_balance + cumulative_profit
+            balance_chart[current_date.strftime('%Y-%m-%d %H:%M:%S')] = balance_at_point
+
+        return balance_chart
+
     
     @staticmethod
     def get_all_accounts(user) -> Dict:
@@ -212,13 +266,66 @@ class TradeService:
             print(f"Error fetching meta trades: {str(e)}")
         # Get C Trader trades
         try:
-            meta_trades = [trade.to_dict() for trade in CTraderService.fetch_trades(user=user, from_time=from_date, to_time=to_date)]
-            trades.extend(meta_trades)
+            c_trades = [trade.to_dict() for trade in CTraderService.fetch_trades(user=user, from_time=from_date, to_time=to_date)]
+            trades.extend(c_trades)
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")
         
+        trades.sort(key=lambda x: x['trade_date'])
+
         return trades
     
+    @staticmethod
+    def calculate_session_distribution(trades: List[Dict]) -> Dict[str, float]:
+        """
+        Calculates the distribution of trades across sessions,
+        normalized to a 0-1 scale where the most frequent session is 1.0
+        """
+        # Initialize counters for each session
+        session_counts = {
+            'london': 0,
+            'new-york': 0,
+            'asia': 0,
+            'pacific': 0
+        }
+
+        london = 7, 16
+        new_york = 12, 21
+        pacific = 21, 6
+        asia = 23, 8
+
+        # Count trades for each session
+        for trade in trades:
+            trade_date = trade.get('trade_date')
+
+            if trade_date:
+                if isinstance(trade_date, str):
+                    trade_date = parse(trade_date)
+
+                if trade_date.hour >= london[0] and trade_date.hour <= london[1]:
+                    session_counts['london'] += 1
+                if trade_date.hour >= new_york[0] and trade_date.hour <= new_york[1]:
+                    session_counts['new-york'] += 1
+                if trade_date.hour >= pacific[0] or trade_date.hour <= pacific[1]:
+                    session_counts['pacific'] += 1
+                if trade_date.hour >= asia[0] or trade_date.hour <= asia[1]:
+                    session_counts['asia'] += 1
+
+        # Find the maximum count to normalize
+        max_count = max(session_counts.values()) if session_counts.values() else 1
+
+        # Normalize to 0-1 scale
+        session_distribution = {
+            session: count / max_count if max_count > 0 else 0
+            for session, count in session_counts.items()
+        }
+
+        return {
+            'distribution': session_distribution,
+            'raw_counts': session_counts,
+            'total_trades': sum(session_counts.values())
+        }
+
     @staticmethod
     def calculate_day_of_week_distribution(trades: List[Dict]) -> Dict[str, float]:
         """
@@ -261,28 +368,54 @@ class TradeService:
         }
 
     @staticmethod
-    def calculate_statistics(trades: List[Dict]) -> Dict:
+    def calculate_statistics(trades: List[Dict], accounts: Dict) -> Dict:
         """
         Calculates comprehensive statistics for given trades
         """
         if not trades:
             return {
                 'overall_statistics': {
+                    'balance': Decimal('0'),
                     'total_trades': 0,
                     'total_profit': Decimal('0'),
                     'total_invested': Decimal('0'),
                     'win_rate': 0,
+                    'long': 0,
+                    'short': 0,
+                    'best_win': 0,
+                    'worst_loss': 0,
+                    'average_win': 0,
+                    'average_loss': 0,
+                    'profit_factor': 0,
+                    'total_won': 0,
+                    'total_lost': 0,
+                    'average_holding_time_minutes': 0,
                 },
                 'symbol_performances': [],
                 'monthly_summary': []
             }
 
         # Overall statistics
+        balance = accounts.get('total_balance', 0)
         total_trades = len(trades)
         total_profit = sum(Decimal(str(trade.get('profit', 0))) for trade in trades)
         total_invested = sum(Decimal(str(trade.get('total_amount', 0))) for trade in trades)
         winning_trades = len([t for t in trades if Decimal(str(t.get('profit', 0))) > 0])
-        
+        long = len([t for t in trades if t.get('trade_type') == 'BUY'])
+        short = len([t for t in trades if t.get('trade_type') == 'SELL'])
+        total_won = sum(Decimal(str(trade.get('profit', 0))) for trade in trades if trade.get('profit', 0) > 0)
+        total_lost = abs(sum(Decimal(str(trade.get('profit', 0))) for trade in trades if trade.get('profit', 0) < 0))
+        best_win = max([t.get('profit', 0) for t in trades if t.get('profit', 0) > 0])
+        worst_loss = min([t.get('profit', 0) for t in trades if t.get('profit', 0) < 0])
+        average_win = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) > 0]) / len([t for t in trades if t.get('profit', 0) > 0])
+        average_loss = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) < 0]) / len([t for t in trades if t.get('profit', 0) < 0])
+        profit_factor = Decimal(str(total_won / total_lost))
+        timed_trades = [t.get('duration_in_minutes', 0) for t in trades if t.get('duration_in_minutes', 0) > 0]
+        average_holding_time_minutes = 0
+
+        if timed_trades != []:
+            average_holding_time_minutes = sum(timed_trades) / len(timed_trades)
+
         # Symbol performances
         symbol_stats = {}
         for trade in trades:
@@ -327,17 +460,30 @@ class TradeService:
             monthly_stats[month_key]['total_invested'] += Decimal(str(trade.get('total_amount', 0)))
 
         day_of_week_analysis = TradeService.calculate_day_of_week_distribution(trades)
+        sessions_analysis = TradeService.calculate_session_distribution(trades)
 
         return {
             'overall_statistics': {
+                'long': long,
+                'short': short,
+                'balance': balance,
                 'total_trades': total_trades,
                 'total_profit': total_profit,
                 'total_invested': total_invested,
-                'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0
+                'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+                'best_win': best_win,
+                'worst_loss': worst_loss,
+                'average_win': average_win,
+                'average_loss': average_loss,
+                'profit_factor': profit_factor,                    
+                'total_won': total_won,
+                'total_lost': total_lost,
+                'average_holding_time_minutes': average_holding_time_minutes,
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
             'day_of_week_analysis': day_of_week_analysis,
+            'session_analysis': sessions_analysis,
         }
 
     @staticmethod

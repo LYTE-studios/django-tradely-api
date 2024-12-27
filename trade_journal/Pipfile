@@ -24,6 +24,7 @@ coverage = "*"
 uvicorn = "*"
 ejtraderct = "*"
 uvloop = "*"
+python-dateutil = "*"
 
 [dev-packages]
 

@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
 from rest_framework.routers import DefaultRouter
 from .views import (
+    AccountBalanceView,
     AccountPerformanceView,
     AccountsSummaryView,
     RefreshAllAccountsView,
@@ -50,6 +51,7 @@ urlpatterns = [
         'delete': 'destroy'
     }),),
     path('statistics/', ComprehensiveTradeStatisticsView.as_view(), name='comprehensive-trade-statistics'),
+    path('account-balance/', AccountBalanceView.as_view(), name='account-balance-statistics'),
     path('account-performance/', AccountPerformanceView.as_view(), name='trade-account-performance'),
 
     # Explicitly add trade notes URLs
