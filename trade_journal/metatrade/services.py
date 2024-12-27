@@ -191,7 +191,6 @@ class MetaApiService:
             async_to_sync(service.refresh_caches)(user, force_refresh=force_refresh)
         except Exception as e:
             logger.error(f"Error in refresh_caches_sync: {str(e)}")
-            logger.error(f"Error in refresh_caches_sync: {str(e)}")
             raise
         finally:
             # Ensure we clean up any remaining connections
@@ -215,7 +214,48 @@ class MetaApiService:
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
 
-        async_to_sync(service.refresh_caches)(user)
-        async_to_sync(service.refresh_caches)(user)
+        loop.create_task(service.refresh_caches(user))
         trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
         return [ManualTrade.from_metatrade(trade) for trade in trades]
+    
+    @staticmethod
+    @ensure_event_loop
+    def authenticate_sync(server, username, password, platform, account_name, loop=None):
+        service = MetaApiService()
+
+        account = loop.run_until_complete(service.authenticate(server, username, password, platform, account_name))
+
+        return account
+    
+    async def authenticate(self, server, username, password, platform, account_name):
+        try:
+            api = MetaApi(meta_api_key)
+
+            account = await api.metatrader_account_api.create_account({
+                'type': 'cloud',
+                'login': username,
+                'name': account_name,
+                'password': password,
+                'server': server,
+                'platform': platform,
+                'magic': 1000,
+            })
+
+            await account.wait_deployed()
+
+            await account.enable_metastats_api()
+
+            await account.create_replica({
+                'region': 'new-york',
+                'magic': 1000,
+            })
+
+            logger.info(f"Successfully created MetaApi account: {account.id}")
+
+            return account
+
+        except Exception as meta_error:
+            logger.error(f"MetaApi create_account failed: {str(meta_error)}")
+            logger.error(f"Full Error Object: {vars(meta_error)}")
+
+            raise meta_error

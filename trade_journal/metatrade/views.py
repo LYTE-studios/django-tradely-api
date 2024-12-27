@@ -61,8 +61,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['post'])
-    @with_event_loop
-    async def login_account(self, request):
+    def login_account(self, request):
         server_name = request.data.get('server_name')
         account_name = request.data.get('account_name')
         username = request.data.get('username')
@@ -76,45 +75,14 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            api = MetaApi(meta_api_key)
-            logger.info(f"Attempting to create MetaApi account for {username} on {server_name}")
-
-            try:
-                account = await api.metatrader_account_api.create_account({
-                    'type': 'cloud',
-                    'login': username,
-                    'name': account_name,
-                    'password': password,
-                    'server': server_name,
-                    'platform': platform,
-                    'magic': 1000,
-                })
-
-                await account.wait_deployed()
-
-                await account.enable_metastats_api()
-
-                await account.create_replica({
-                    'region': 'new-york',
-                    'magic': 1000,
-                })
-
-                logger.info(f"Successfully created MetaApi account: {account.id}")
-
-            except Exception as meta_error:
-                logger.error(f"MetaApi create_account failed: {str(meta_error)}")
-                logger.error(f"Full Error Object: {vars(meta_error)}")
-                return Response(
-                    {'error': str(meta_error)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            account = MetaApiService.authenticate_sync(server_name, username, password, platform, account_name)
 
             user = request.user
             try:
-                trader_account = await sync_to_async(MetaTraderAccount.objects.update_or_create)(
+                trader_account = MetaTraderAccount.objects.update_or_create(
+                    account_id=account.id,
                     user=user,
                     defaults={
-                        'account_id': account.id,
                         'email': username,
                         'password': encrypt_password(password),
                         'key_code': KEY,
@@ -132,7 +100,7 @@ class MetaTraderAccountViewSet(viewsets.ModelViewSet):
                 )
 
             try:
-                await MetaApiService.refresh_caches(user=user)
+                MetaApiService.refresh_caches_sync(user=user)
                 logger.info("Successfully refreshed caches")
             except Exception as cache_error:
                 logger.warning(f"Cache refresh failed (non-critical): {str(cache_error)}")
