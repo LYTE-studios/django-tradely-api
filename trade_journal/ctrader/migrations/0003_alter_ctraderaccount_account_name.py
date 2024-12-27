@@ -10,9 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='ctraderaccount',
-            name='account_name',
-            field=models.CharField(max_length=255, null=True),
+        migrations.AddField(
+            model_name='ctrade',
+            name='open_time',
+            field=models.DateTimeField(blank=True, null=True),
         ),
     ]

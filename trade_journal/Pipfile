@@ -23,6 +23,7 @@ pytest = "*"
 coverage = "*"
 uvicorn = "*"
 ejtraderct = "*"
+uvloop = "*"
 
 [dev-packages]
 

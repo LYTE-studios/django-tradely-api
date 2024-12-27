@@ -1,8 +1,11 @@
 import asyncio
 from typing import List, Dict
+
+from users.models import ManualTrade
 from .models import CTraderAccount, CTrade
 from ejtraderCT import Ctrader
 from metatrade.utils import encrypt_password, decrypt_password, KEY
+from datetime import datetime
 
 
 class CTraderService:
@@ -41,23 +44,15 @@ class CTraderService:
         ]
 
     @staticmethod
-    def fetch_trades(user) -> List[Dict]:
+    def fetch_trades(user, from_time: datetime = None, to_time: datetime = None) -> List[ManualTrade]:
         """Fetch all CTrader trades for a user"""
-        trades = CTrade.objects.filter(trader_locker__user=user)
-        return [
-            {
-                'id': trade.id,
-                'ord_id': trade.ord_id,
-                'name': trade.name,
-                'side': trade.side,
-                'amount': trade.amount,
-                'price': trade.price,
-                'actual_price': trade.actual_price,
-                'pos_id': trade.pos_id,
-                # Add other relevant fields
-            }
-            for trade in trades
-        ]
+        if from_time and to_time:
+            trades = CTrade.objects.filter(trader_locker__user=user, open_time__gte=from_time, open_time__lte=to_time)
+
+        else:
+            trades = CTrade.objects.filter(trader_locker__user=user)
+
+        return [ManualTrade.from_c_trade(trade) for trade in trades]
 
     @staticmethod
     def get_trades(user) -> List[Dict]:

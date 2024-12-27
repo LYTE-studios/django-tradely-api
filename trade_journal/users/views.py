@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
+from datetime import datetime
 import requests
 from django.utils import timezone
 from django.contrib.auth import authenticate
@@ -155,7 +156,7 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
                 # Convert the date string to a date object
                 date = timezone.datetime.strptime(date_param, '%Y-%m-%d').date()
                 # Filter queryset by the specific date
-                queryset = queryset.filter(date=date)
+                queryset = queryset.filter(note_date=date)
             except ValueError:
                 # Handle invalid date format
                 return TradeNote.objects.none()
@@ -255,8 +256,28 @@ class RefreshAllAccountsView(APIView):
     
 class UserGetAllTradesView(APIView):
     def get(self, request):
-        try:
-            trades = TradeService.get_all_trades(request.user)
+        
+        try:            
+            
+            from_date = request.query_params.get('from')
+            until_date = request.query_params.get('to')
+
+            # Parse datetime parameters
+            parsed_from_date = None
+            parsed_until_date = None
+
+            if from_date:
+                parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
+
+            if until_date:
+                parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
+
+            # Fetch trades using the service method with optional datetime filtering
+            trades = TradeService.get_all_trades(
+                request.user, 
+                from_date=parsed_from_date, 
+                to_date=parsed_until_date
+            )
             
             response_data = {
                 'user': {
