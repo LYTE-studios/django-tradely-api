@@ -30,9 +30,11 @@ class ManualTrade(models.Model):
     symbol = models.CharField(max_length=10, null=True, default='')  # e.g., AAPL, GOOGL
     quantity = models.IntegerField(null=True, blank=True, default=1)
     price = models.DecimalField(max_digits=15, decimal_places=2, null=True, default=0)
+    gain = models.FloatField(default=0.0, null=True, blank=True)
     profit = models.FloatField(default=0.0, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, default=0)
     trade_date = models.DateTimeField(null=True, blank=True)
+    close_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     duration_in_minutes = models.FloatField(default=0, null=True, blank=True)
@@ -44,9 +46,11 @@ class ManualTrade(models.Model):
             'symbol': self.symbol,
             'quantity': self.quantity,
             'price': self.price,
+            'gain': self.gain,
             'profit': self.profit,
             'total_amount': self.total_amount,
             'trade_date': self.trade_date,
+            'close_date': self.close_date,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'duration_in_minutes': self.duration_in_minutes,
@@ -83,14 +87,20 @@ class ManualTrade(models.Model):
         # Set the trade date
         trade_date = metatrade_trade.open_time
 
+        close_date = metatrade_trade.close_time
+
+        gain = metatrade_trade.gain
+
         return ManualTrade(
             trade_type=trade_type,
             symbol=symbol,
             quantity=quantity,
             price=metatrade_trade.profit,
+            gain=gain,
             profit=profit,
             total_amount=metatrade_trade.profit * quantity,
             trade_date=trade_date,
+            close_date=close_date,
             duration_in_minutes=metatrade_trade.duration_in_minutes
         )
 

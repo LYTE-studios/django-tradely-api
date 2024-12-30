@@ -50,6 +50,7 @@ class Trade(models.Model):
     gain = models.FloatField(default=0, null=True, blank=True)
     success = models.CharField(max_length=255, null=True, blank=True)
     open_time = models.DateTimeField(blank=True)
+    close_time = models.DateTimeField(blank=True, null=True)
     type = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):

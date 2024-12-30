@@ -145,6 +145,7 @@ class MetaApiService:
                     'success': trade['success'],
                     'type': trade['type'],
                     'open_time': trade['openTime'],
+                    'close_time': trade['closeTime'],
                 }
             )
 
