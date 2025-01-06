@@ -17,10 +17,11 @@ class TradeService:
         Gets a balance chart for the given user
         """
 
-        from django.utils.timezone import make_aware
+        if from_date and to_date:
+            from django.utils.timezone import make_aware
 
-        from_date = make_aware(from_date)
-        to_date = make_aware(to_date)
+            from_date = make_aware(from_date)
+            to_date = make_aware(to_date)
 
         trades = TradeService.get_all_trades(user, from_date, to_date)
 
@@ -275,7 +276,7 @@ class TradeService:
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")
         
-        trades.sort(key=lambda x: x['trade_date'])
+        trades.sort(key=lambda x: x['close_date'], reverse=True)
 
         return trades
     
