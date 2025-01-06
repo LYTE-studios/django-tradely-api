@@ -18,6 +18,7 @@ from .views import (
     HelloThereView,
     UserGetAllTradesView,
     LeaderBoardView,
+    UserProfileView,
 )
 
 # Create a router for the viewsets
@@ -31,6 +32,7 @@ urlpatterns = [
     # Authentication routes
     path('register/', UserRegisterView.as_view(), name='register'),
     path('login/', UserLoginView.as_view(), name='login'),
+    path('profile/', UserProfileView.as_view(), name='profile'),
     path('hello-there/', HelloThereView.as_view(), name='hello-there'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

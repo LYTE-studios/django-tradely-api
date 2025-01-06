@@ -30,7 +30,6 @@ from .serializers import (
     TradeNoteSerializer
 )
 
-
 class HelloThereView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -58,6 +57,31 @@ class UserLoginView(generics.GenericAPIView):
             token = AccessToken.for_user(user)
             return Response({'access': str(token)})
         return Response({'detail': 'Invalid credentials'}, status=401)
+    
+
+class UserProfileView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        return Response({'email': user.email, 'first_name': user.first_name, 'last_name': user.last_name})
+    
+    def put(self, request, *args, **kwargs):
+        user = request.user
+
+        try:
+            user.first_name = request.data.get('first_name')
+        except:
+            pass
+        try:
+            user.last_name = request.data.get('last_name')
+        except:
+            pass
+
+        user.save()
+
+        return Response({'email': user.email, 'first_name': user.first_name, 'last_name': user.last_name})
 
 
 class BaseModelViewSet(viewsets.ModelViewSet):

@@ -12,10 +12,16 @@ from django.utils import timezone
 class TradeService:
 
     @staticmethod
-    def get_account_balance_chart(user, from_date: datetime = None, to_date: datetime = None) -> Dict:
+    def get_account_balance_chart(user, from_date: timezone.datetime = None, to_date: timezone.datetime = None) -> Dict:
         """
         Gets a balance chart for the given user
         """
+
+        from django.utils.timezone import make_aware
+
+        from_date = make_aware(from_date)
+        to_date = make_aware(to_date)
+
         trades = TradeService.get_all_trades(user, from_date, to_date)
 
         if not trades:
@@ -28,11 +34,11 @@ class TradeService:
         initial_balance = balance + sum(Decimal(str(trade.get('profit', 0))) for trade in trades)
 
         # Sort trades chronologically
-        trades.sort(key=lambda x: parse(x['trade_date']))
+        trades.sort(key=lambda x: x['close_date'])
 
         # If from_date and to_date are not provided, use trade date range
         if not from_date:
-            from_date = parse(trades[0]['trade_date'])
+            from_date = trades[0]['close_date']
         if not to_date:
             to_date = timezone.now()
 
@@ -40,15 +46,13 @@ class TradeService:
         time_interval = (to_date - from_date) / 100
         balance_chart = {}
 
-        # Track balance at each point
-        current_balance = initial_balance
-        for i in range(100):
-            current_date = from_date + time_interval * i
+        for i in range(100):     
+            current_date = from_date + (time_interval * i)
 
             # Find trades up to this point
             trades_up_to_point = [
                 trade for trade in trades 
-                if parse(trade['trade_date']) <= current_date
+                if trade['close_date'] <= current_date
             ]
 
             # Calculate cumulative profit/loss
@@ -252,7 +256,7 @@ class TradeService:
         
         # Get manual trades
         if from_date and to_date:
-            manual_trades = ManualTrade.objects.filter(account__user=user, trade_date__gte=from_date, trade_date__lte=to_date)
+            manual_trades = ManualTrade.objects.filter(account__user=user, close_date__range=(from_date, to_date))
         else:
             manual_trades = ManualTrade.objects.filter(account__user=user)  
 
@@ -405,11 +409,26 @@ class TradeService:
         short = len([t for t in trades if t.get('trade_type') == 'SELL'])
         total_won = sum(Decimal(str(trade.get('profit', 0))) for trade in trades if trade.get('profit', 0) > 0)
         total_lost = abs(sum(Decimal(str(trade.get('profit', 0))) for trade in trades if trade.get('profit', 0) < 0))
-        best_win = max([t.get('profit', 0) for t in trades if t.get('profit', 0) > 0])
-        worst_loss = min([t.get('profit', 0) for t in trades if t.get('profit', 0) < 0])
-        average_win = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) > 0]) / len([t for t in trades if t.get('profit', 0) > 0])
-        average_loss = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) < 0]) / len([t for t in trades if t.get('profit', 0) < 0])
-        profit_factor = Decimal(str(total_won / total_lost))
+       
+        all_wins = [t.get('profit', 0) for t in trades if t.get('profit', 0) > 0]
+        best_win = 0
+        average_win = 0
+        if all_wins:
+            average_win = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) > 0]) / len([t for t in trades if t.get('profit', 0) > 0])
+            best_win = max(all_wins)
+        
+
+        all_losses = [t.get('profit', 0) for t in trades if t.get('profit', 0) < 0]
+        worst_loss = 0
+        average_loss = 0
+        if all_losses:
+            average_loss = sum([t.get('profit', 0) for t in trades if t.get('profit', 0) < 0]) / len([t for t in trades if t.get('profit', 0) < 0])
+            worst_loss = min(all_losses)
+
+        if total_lost == 0:
+            profit_factor = 0
+        else:
+            profit_factor = Decimal(str(total_won / total_lost))
         timed_trades = [t.get('duration_in_minutes', 0) for t in trades if t.get('duration_in_minutes', 0) > 0]
         average_holding_time_minutes = 0
 

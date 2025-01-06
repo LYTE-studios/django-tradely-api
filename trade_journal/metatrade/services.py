@@ -198,7 +198,7 @@ class MetaApiService:
         loop.create_task(service.refresh_caches(user))
 
         if from_time and to_time:
-            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], open_time__gte=from_time, open_time__lte=to_time)      
+            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], close_time__range=(from_time, to_time))      
         else:
             trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
         
