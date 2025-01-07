@@ -131,23 +131,36 @@ class MetaApiService:
     async def update_trades(self, meta_trades, user, account_id):
         for trade in meta_trades:
             if trade['type'] == 'DEAL_TYPE_BALANCE':
-                continue
-            await sync_to_async(Trade.objects.update_or_create)(
-                user=user,
-                account_id=account_id,
-                trade_id=str(trade['_id']).split('+')[1],
-                defaults={
-                    'volume': trade['volume'],
-                    'symbol': trade['symbol'],
-                    'duration_in_minutes': trade['durationInMinutes'],
-                    'profit': trade['profit'],
-                    'gain': trade['gain'],
-                    'success': trade['success'],
-                    'type': trade['type'],
-                    'open_time': trade['openTime'],
-                    'close_time': trade['closeTime'],
-                }
-            )
+                await sync_to_async(Trade.objects.update_or_create)(
+                    user=user,
+                    account_id=account_id,
+                    trade_id=str(trade['_id']).split('+')[1],
+                    defaults={
+                        'profit': trade['profit'],
+                        'gain': 0,
+                        'type': 'DEAL_TYPE_BUY',
+                        'open_time': trade['openTime'],
+                        'close_time': trade['openTime'],
+                        'is_top_up': True,
+                    }
+                )
+            else:
+                await sync_to_async(Trade.objects.update_or_create)(
+                    user=user,
+                    account_id=account_id,
+                    trade_id=str(trade['_id']).split('+')[1],
+                    defaults={
+                        'volume': trade['volume'],
+                        'symbol': trade['symbol'],
+                        'duration_in_minutes': trade['durationInMinutes'],
+                        'profit': trade['profit'],
+                        'gain': trade['gain'],
+                        'success': trade['success'],
+                        'type': trade['type'],
+                        'open_time': trade['openTime'],
+                        'close_time': trade['closeTime'],
+                    }
+                )
 
     async def update_account_cache(self, account, balance):
         account.balance = balance
@@ -190,20 +203,26 @@ class MetaApiService:
 
     @staticmethod
     @ensure_event_loop
-    def fetch_trades(user,from_time: datetime = None, to_time: datetime = None, loop=None):
+    def fetch_trades(user,from_time: datetime = None, to_time: datetime = None, include_deposits=False, loop=None):
         service = MetaApiService()
         accounts = MetaTraderAccount.objects.filter(user=user)
         account_list = list(accounts)
 
         loop.create_task(service.refresh_caches(user))
-
-        if from_time and to_time:
-            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], close_time__range=(from_time, to_time))      
+        if include_deposits:
+            if from_time and to_time:
+                trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], close_time__range=(from_time, to_time))      
+            else:
+                trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
+            
         else:
-            trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list])
-        
+            if from_time and to_time:
+                trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], close_time__range=(from_time, to_time), is_top_up=False)      
+            else:
+                trades = Trade.objects.filter(account_id__in=[account.account_id for account in account_list], is_top_up=False)
+            
         return [ManualTrade.from_metatrade(trade) for trade in trades]
-    
+
     @staticmethod
     @ensure_event_loop
     def authenticate_sync(server, username, password, platform, account_name, loop=None):

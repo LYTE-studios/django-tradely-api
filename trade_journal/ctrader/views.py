@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from metatrade.utils import encrypt_password, decrypt_password, KEY
 from rest_framework.views import APIView
+
+from trade_journal.ctrader.services import CTraderService
 from .models import CTraderAccount
 from ejtraderCT import Ctrader
 
@@ -42,6 +44,8 @@ class CTraderAccountViewSet(viewsets.ModelViewSet):
         password = request.data.get('password')
         server = request.data.get('server')
         account_name = request.data.get('account_name')
+
+        CTraderService.login(user, server, sender_id, password)
 
         # Authenticate and get tokens
         api = Ctrader(server, sender_id, password)

@@ -23,28 +23,19 @@ class TradeService:
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
 
-        trades = TradeService.get_all_trades(user, from_date, to_date)
+        trades = TradeService.get_all_trades(user, from_date, to_date, include_deposits=True)
 
         if not trades:
             return {}   
 
-        # Calculate initial total balance
-        accounts = TradeService.get_all_accounts(user)
-        balance = sum(Decimal(str(account.get('balance', 0))) for account in accounts['accounts'])
-
-        initial_balance = balance + sum(Decimal(str(trade.get('profit', 0))) for trade in trades)
-
-        # Sort trades chronologically
-        trades.sort(key=lambda x: x['close_date'])
-
         # If from_date and to_date are not provided, use trade date range
         if not from_date:
-            from_date = trades[0]['close_date']
+            from_date = trades[-1]['close_date']
         if not to_date:
             to_date = timezone.now()
 
         # Create 100 time points between from_date and to_date
-        time_interval = (to_date - from_date) / 100
+        time_interval = (to_date - from_date) / 50
         balance_chart = {}
 
         for i in range(100):     
@@ -53,7 +44,7 @@ class TradeService:
             # Find trades up to this point
             trades_up_to_point = [
                 trade for trade in trades 
-                if trade['close_date'] <= current_date
+                if trade['close_date'] <= current_date and trade['close_date'] >= from_date
             ]
 
             # Calculate cumulative profit/loss
@@ -62,7 +53,7 @@ class TradeService:
             )
 
             # Update balance
-            balance_at_point = initial_balance + cumulative_profit
+            balance_at_point = cumulative_profit
             balance_chart[current_date.strftime('%Y-%m-%d %H:%M:%S')] = balance_at_point
 
         return balance_chart
@@ -249,7 +240,7 @@ class TradeService:
         return refresh_summary
     
     @staticmethod
-    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None) -> List[Dict]:
+    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None, include_deposits=False) -> List[Dict]:
         """
         Fetches all trades from different sources and normalizes them
         """
@@ -265,7 +256,7 @@ class TradeService:
         
         # Get MetaAPI trades
         try:
-            meta_trades = [trade.to_dict() for trade in MetaApiService.fetch_trades(user=user, from_time=from_date, to_time=to_date)]
+            meta_trades = [trade.to_dict() for trade in MetaApiService.fetch_trades(user=user, from_time=from_date, to_time=to_date, include_deposits=include_deposits)]
             trades.extend(meta_trades)
         except Exception as e:
             print(f"Error fetching meta trades: {str(e)}")
@@ -294,10 +285,10 @@ class TradeService:
             'pacific': 0
         }
 
-        london = 7, 16
-        new_york = 12, 21
-        pacific = 21, 6
-        asia = 23, 8
+        london = 7, 13
+        new_york = 13, 22
+        pacific = 23, 0
+        asia = 0, 6
 
         # Count trades for each session
         for trade in trades:
@@ -396,6 +387,7 @@ class TradeService:
                     'total_lost': 0,
                     'average_holding_time_minutes': 0,
                 },
+                'day_performances': {},
                 'symbol_performances': [],
                 'monthly_summary': []
             }
@@ -455,6 +447,37 @@ class TradeService:
             symbol_stats[symbol]['total_profit'] += Decimal(str(trade.get('profit', 0)))
             symbol_stats[symbol]['total_invested'] += Decimal(str(trade.get('total_amount', 0)))
 
+        # Day performance
+        day_performances = {}
+        for trade in trades:
+            trade_date = trade.get('close_date') or trade.get('close_time')
+            if not trade_date:
+                continue
+                
+            if isinstance(trade_date, str):
+                trade_date = datetime.fromisoformat(trade_date.replace('Z', '+00:00'))
+
+            day_key = trade_date.strftime('%Y-%m-%d')
+            
+            if day_key not in day_performances:
+                day_performances[day_key] = {
+                    'day': day_key,
+                    'total_trades': 0,
+                    'total_profit': Decimal('0'),
+                    'total_won': Decimal('0'),
+                    'total_loss': Decimal('0'),
+                    'total_invested': Decimal('0')
+                }
+            
+            day_performances[day_key]['total_trades'] += 1
+            day_performances[day_key]['total_profit'] += Decimal(str(trade.get('profit', 0)))
+            if trade.get('profit', 0) > 0:
+                day_performances[day_key]['total_won'] += Decimal(str(trade.get('profit', 0)))
+            else:    
+                day_performances[day_key]['total_loss'] += Decimal(str(trade.get('profit', 0)))
+
+            day_performances[day_key]['total_invested'] += Decimal(str(trade.get('total_amount', 0)))
+
         # Monthly summary
         monthly_stats = {}
         for trade in trades:
@@ -503,6 +526,7 @@ class TradeService:
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
             'day_of_week_analysis': day_of_week_analysis,
+            'day_performances': day_performances,
             'session_analysis': sessions_analysis,
         }
 

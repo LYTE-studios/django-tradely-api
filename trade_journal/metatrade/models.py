@@ -52,6 +52,7 @@ class Trade(models.Model):
     open_time = models.DateTimeField(blank=True)
     close_time = models.DateTimeField(blank=True, null=True)
     type = models.CharField(max_length=255, null=True, blank=True)
+    is_top_up = models.BooleanField(default=False, blank=True)
 
     def __str__(self):
         return f'Trade {self.id} for user {self.account_id}'

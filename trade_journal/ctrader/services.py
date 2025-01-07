@@ -13,16 +13,18 @@ class CTraderService:
         self._refresh_lock = asyncio.Lock()
 
     @staticmethod
-    def login_account(user, server, sender_id, password):
+    def login_account(user, server, sender_id, password, account_name, is_demo):
         api = Ctrader(server, sender_id, password)
         status = api.isconnected()
         if status:
             CTraderAccount.objects.update_or_create(
                 user=user,
                 defaults={
+                    'account_name': account_name,
                     'account': sender_id,
                     'server': server,
                     'password': encrypt_password(password),
+                    'demo_status': is_demo,
                     'key_code': KEY,
                 }
             )
@@ -77,6 +79,9 @@ class CTraderService:
                         'actual_price': trade['actual_price'],
                         'pos_id': trade['pos_id'],
                         'clid': trade['clid'],
+                        'is_deposit': False,
+                        'open_time': trade['open_time'],
+                        'close_time': trade['close_time'],
                     })
 
         return trades
