@@ -21,7 +21,7 @@ from trade_locker.models import TraderLockerAccount, OrderHistory
 from .services import TradeService
 
 from .email_service import brevo_email_service
-from .models import CustomUser, TradeAccount, ManualTrade, TradeNote
+from .models import CustomUser, TradeAccount, ManualTrade, TradeNote, UploadedFile
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -358,4 +358,17 @@ class UserGetAllTradesView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
             print(f"Error fetching global trades: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UploadFileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            file = request.FILES['file']
+            uploaded_file = UploadedFile.objects.create(user=request.user, file=file)
+            return Response({"url": uploaded_file.file.url}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print(f"Error uploading file: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

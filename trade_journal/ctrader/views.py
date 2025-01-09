@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from metatrade.utils import encrypt_password, decrypt_password, KEY
 from rest_framework.views import APIView
 
-from trade_journal.ctrader.services import CTraderService
+from .services import CTraderService
 from .models import CTraderAccount
 from ejtraderCT import Ctrader
 

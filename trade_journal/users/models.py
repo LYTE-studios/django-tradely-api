@@ -124,3 +124,13 @@ class TradeNote(models.Model):
 
     def __str__(self):
         return f"Note for {self.trade.symbol} trade" if self.trade else f"Note for {self.note_date}"
+    
+
+class UploadedFile(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
+    file = models.FileField(upload_to='uploaded_files/%Y/%m/%d')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Uploaded file for {self.user}"

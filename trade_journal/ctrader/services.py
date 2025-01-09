@@ -67,21 +67,32 @@ class CTraderService:
             trades = api.orders()
             for trade in trades:
                 if trade['type'] == 'DEAL_TYPE_BALANCE':
-                    continue
-                CTrade.objects.update_or_create(
-                    user=user,
-                    ord_id=trade['ord_id'],
-                    defaults={
-                        'name': trade['name'],
-                        'side': trade['side'],
-                        'amount': trade['amount'],
-                        'price': trade['price'],
-                        'actual_price': trade['actual_price'],
-                        'pos_id': trade['pos_id'],
-                        'clid': trade['clid'],
-                        'is_deposit': False,
-                        'open_time': trade['open_time'],
-                        'close_time': trade['close_time'],
-                    })
+                    CTrade.objects.update_or_create(
+                        user=user,
+                        ord_id=trade['ord_id'],
+                        defaults={
+                            'name': trade['name'],
+                            'side': trade['side'],
+                            'amount': trade['amount'],
+                            'price': trade['price'],
+                            'actual_price': trade['actual_price'],
+                            'is_deposit': True,
+                        })
+                else:
+                    CTrade.objects.update_or_create(
+                        user=user,
+                        ord_id=trade['ord_id'],
+                        defaults={
+                            'name': trade['name'],
+                            'side': trade['side'],
+                            'amount': trade['amount'],
+                            'price': trade['price'],
+                            'actual_price': trade['actual_price'],
+                            'pos_id': trade['pos_id'],
+                            'clid': trade['clid'],
+                            'is_deposit': False,
+                            'open_time': trade['open_time'],
+                            'close_time': trade['close_time'],
+                        })
 
         return trades

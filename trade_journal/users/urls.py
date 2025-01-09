@@ -9,6 +9,7 @@ from .views import (
     AccountPerformanceView,
     AccountsSummaryView,
     RefreshAllAccountsView,
+    UploadFileView,
     UserRegisterView,
     UserLoginView,
     TradeAccountViewSet,
@@ -69,6 +70,8 @@ urlpatterns = [
     path('get_all_trades/', UserGetAllTradesView.as_view(), name='get-all-trades'),
     path('refresh-account/', RefreshAllAccountsView.as_view(), name='refresh-account'),
     path('leaderboard/', LeaderBoardView.as_view(), name='leaderboard'),
+
+    path('upload-file/', UploadFileView.as_view(), name='upload-file'),
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),
 ]
