@@ -23,7 +23,7 @@ class TradeService:
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
 
-        trades = TradeService.get_all_trades(user, from_date, to_date, include_deposits=True)
+        trades = TradeService.get_all_trades(user, include_deposits=True)
 
         if not trades:
             return {}   
@@ -34,17 +34,12 @@ class TradeService:
         if not to_date:
             to_date = timezone.now()
 
-        # Create 100 time points between from_date and to_date
-        time_interval = (to_date - from_date) / 50
         balance_chart = {}
 
-        for i in range(100):     
-            current_date = from_date + (time_interval * i)
-
-            # Find trades up to this point
+        def add_for_date(date):
             trades_up_to_point = [
                 trade for trade in trades 
-                if trade['close_date'] <= current_date and trade['close_date'] >= from_date
+                if trade['close_date'] <= date and trade['close_date'] >= from_date
             ]
 
             # Calculate cumulative profit/loss
@@ -52,10 +47,22 @@ class TradeService:
                 Decimal(str(trade.get('profit', 0))) for trade in trades_up_to_point
             )
 
-            # Update balance
-            balance_at_point = cumulative_profit
-            balance_chart[current_date.strftime('%Y-%m-%d %H:%M:%S')] = balance_at_point
+            balance_chart[current_date.strftime('%Y-%m-%d %H:%M:%S')] = cumulative_profit
 
+        for trade in trades:
+            current_date = trade['close_date']
+
+            add_for_date(current_date)
+
+        if from_date and to_date:
+            add_for_date(from_date)
+            add_for_date(to_date)
+            inter_chart = balance_chart.copy()
+            balance_chart = {}
+            for(key, value) in inter_chart.items():
+                if key >= from_date.strftime('%Y-%m-%d %H:%M:%S') and key <= to_date.strftime('%Y-%m-%d %H:%M:%S'):
+                    balance_chart[key] = value
+                    
         return balance_chart
 
     
@@ -302,9 +309,9 @@ class TradeService:
                     session_counts['london'] += 1
                 if trade_date.hour >= new_york[0] and trade_date.hour <= new_york[1]:
                     session_counts['new-york'] += 1
-                if trade_date.hour >= pacific[0] or trade_date.hour <= pacific[1]:
+                if trade_date.hour >= pacific[0] and trade_date.hour <= pacific[1]:
                     session_counts['pacific'] += 1
-                if trade_date.hour >= asia[0] or trade_date.hour <= asia[1]:
+                if trade_date.hour >= asia[0] and trade_date.hour <= asia[1]:
                     session_counts['asia'] += 1
 
         # Find the maximum count to normalize

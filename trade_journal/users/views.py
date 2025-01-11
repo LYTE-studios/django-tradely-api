@@ -368,7 +368,10 @@ class UploadFileView(APIView):
         try:
             file = request.FILES['file']
             uploaded_file = UploadedFile.objects.create(user=request.user, file=file)
-            return Response({"url": uploaded_file.file.url}, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            print(f"Error uploading file: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        from django.conf import settings
+
+        return Response({"url": str(str(settings.STATIC_URL[:-1]) + uploaded_file.file.url)}, status=status.HTTP_201_CREATED)

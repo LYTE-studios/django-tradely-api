@@ -90,6 +90,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     currency=currency
                 )
                 self.send_payment_confirmation_email(payment, service_name, api_key, api_secret)
+                
                 return Response({
                     'clientSecret': intent.client_secret,
                     'payment_id': payment.id

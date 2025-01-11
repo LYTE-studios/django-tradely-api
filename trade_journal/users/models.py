@@ -127,8 +127,20 @@ class TradeNote(models.Model):
     
 
 class UploadedFile(models.Model):
+        
+    def upload_location(instance, filename):
+        extension = filename.split('.')[-1]
+
+        from django.utils import timezone
+
+        now = timezone.now()
+
+        name = int(now.timestamp())
+
+        return f'uploaded_files/{now.year}/{now.month}/{name}.{extension}'
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.FileField(upload_to='uploaded_files/%Y/%m/%d')
+    file = models.FileField(upload_to=upload_location)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
