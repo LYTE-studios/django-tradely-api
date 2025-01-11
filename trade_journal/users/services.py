@@ -52,7 +52,6 @@ class TradeService:
         for trade in trades:
             add_for_date(trade['close_date'])
 
-        add_for_date(from_date)
         add_for_date(to_date)
         inter_chart = balance_chart.copy()
         balance_chart = {}
