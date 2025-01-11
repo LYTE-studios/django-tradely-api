@@ -30,7 +30,7 @@ class TradeService:
 
         # If from_date and to_date are not provided, use trade date range
         if not from_date:
-            from_date = trades[-1]['close_date']
+            from_date = trades[-1]['close_date'] - timezone.timedelta(days=1)
         if not to_date:
             to_date = timezone.now()
 
@@ -39,7 +39,7 @@ class TradeService:
         def add_for_date(date):
             trades_up_to_point = [
                 trade for trade in trades 
-                if trade['close_date'] <= date and trade['close_date'] >= from_date
+                if trade['close_date'] <= date
             ]
 
             # Calculate cumulative profit/loss
@@ -47,21 +47,18 @@ class TradeService:
                 Decimal(str(trade.get('profit', 0))) for trade in trades_up_to_point
             )
 
-            balance_chart[current_date.strftime('%Y-%m-%d %H:%M:%S')] = cumulative_profit
+            balance_chart[date.strftime('%Y-%m-%d %H:%M:%S')] = cumulative_profit
 
         for trade in trades:
-            current_date = trade['close_date']
+            add_for_date(trade['close_date'])
 
-            add_for_date(current_date)
-
-        if from_date and to_date:
-            add_for_date(from_date)
-            add_for_date(to_date)
-            inter_chart = balance_chart.copy()
-            balance_chart = {}
-            for(key, value) in inter_chart.items():
-                if key >= from_date.strftime('%Y-%m-%d %H:%M:%S') and key <= to_date.strftime('%Y-%m-%d %H:%M:%S'):
-                    balance_chart[key] = value
+        add_for_date(from_date)
+        add_for_date(to_date)
+        inter_chart = balance_chart.copy()
+        balance_chart = {}
+        for(key, value) in inter_chart.items():
+            if key >= from_date.strftime('%Y-%m-%d %H:%M:%S') and key <= to_date.strftime('%Y-%m-%d %H:%M:%S'):
+                balance_chart[key] = value
                     
         return balance_chart
 
