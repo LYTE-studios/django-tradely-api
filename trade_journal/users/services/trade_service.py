@@ -38,9 +38,8 @@ class TradeService:
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
         else:
-            from_date = trades[-1]['close_date'] - timezone.timedelta(days=1)
+            from_date = trades.last().close_time - timezone.timedelta(days=1)
             to_date = timezone.now()
-
 
         if not trades:
             return {}   

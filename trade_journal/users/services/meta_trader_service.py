@@ -36,7 +36,7 @@ class MetaTraderService:
             await meta_account.undeploy()
 
         except Exception as e:
-            logger.error(f"Error refreshing account {account.account_id}: {str(e)}")
+            print(f"Error refreshing account {account.account_id}: {str(e)}")
             raise
     
     async def get_meta_trades(self, account_id: str):
@@ -59,10 +59,10 @@ class MetaTraderService:
                 timeout=30
             )
         except asyncio.TimeoutError:
-            logger.error(f"Timeout while fetching trades for account {account_id}")
+            print(f"Timeout while fetching trades for account {account_id}")
             return []
         except Exception as e:
-            logger.error(f"Error fetching trades for account {account_id}: {str(e)}")
+            print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
         
     async def update_trades(self, meta_trades, account_id):
@@ -128,19 +128,17 @@ class MetaTraderService:
                 'magic': 1000,
             })
 
-            logger.info(f"Successfully created MetaApi account: {account.id}")
+            print(f"Successfully created MetaApi account: {account.id}")
 
             return account.id
 
         except Exception as meta_error:
-            logger.error(f"MetaApi create_account failed: {str(meta_error)}")
-            logger.error(f"Full Error Object: {vars(meta_error)}")
+            print(f"MetaApi create_account failed: {str(meta_error)}")
+            print(f"Full Error Object: {vars(meta_error)}")
 
             raise meta_error
 
     @staticmethod
     @ensure_event_loop
     def authenticate_sync(server, username, password, platform , loop=None):
-        account = loop.run_until_complete(MetaTraderService.authenticate(server, username, password, platform))
-
-        return account
+        return loop.run_until_complete(MetaTraderService.authenticate(server, username, password, platform))

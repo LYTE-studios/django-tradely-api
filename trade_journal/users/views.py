@@ -43,7 +43,7 @@ class AuthenticateAccountView(APIView):
             )
         
         try:
-            AccountService.authenticate(username, password, server_name, platform, account_name)
+            AccountService.authenticate(username, password, server_name, platform, account_name, request.user)
             return Response({'message': 'Account authenticated.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
@@ -243,7 +243,7 @@ class AccountsSummaryView(APIView):
     def get(self, request):
         try:
             accounts = TradeService.get_all_accounts(request.user)
-            return Response({'accounts': accounts}, status=status.HTTP_200_OK)
+            return Response({'accounts': [account.to_dict() for account in accounts]}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
                 {"error": f"Error fetching accounts: {str(e)}"}, 
@@ -377,7 +377,7 @@ class UserGetAllTradesView(APIView):
                     "username": request.user.username,
                     "email": request.user.email,
                 },
-                'trades': trades,
+                'trades': [trade.to_dict() for trade in trades],
             }
 
             return Response(response_data, status=status.HTTP_200_OK)

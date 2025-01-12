@@ -13,11 +13,11 @@ class AccountService:
     @staticmethod
     def delete_account(account: TradeAccount):
         account.delete()
-        logger.info(f"Deleted account: {account.id}")
+        print(f"Deleted account: {account.id}")
 
         # Delete all trades associated with the account
         ManualTrade.objects.filter(account=account).delete()
-        logger.info(f"Deleted trades for account: {account.id}")
+        print(f"Deleted trades for account: {account.id}")
 
     @staticmethod
     def calculate_account_balance(account: TradeAccount):
@@ -44,7 +44,7 @@ class AccountService:
         sync_to_async(AccountService.update_account_cache)(account)
 
     @staticmethod
-    async def refresh_account(user, force_refresh=False):
+    async def check_refresh(user, force_refresh=False):
         def needs_refresh(account: TradeAccount) -> bool:
             if not account.cached_at or not account.cached_until:
                 return True
@@ -64,28 +64,32 @@ class AccountService:
     @staticmethod
     @ensure_event_loop
     def cache_account_force(user, loop=None):
-        loop.run_until_complete(AccountService.refresh_account(user, True))
+        loop.run_until_complete(AccountService.check_refresh(user, True))
 
     @staticmethod
     @ensure_event_loop
     def cache_account_task(user, loop=None):
-        loop.create_task(AccountService.refresh_account(user, False))
+        loop.create_task(AccountService.check_refresh(user, False))
 
     @staticmethod
     def authenticate(username, password, server, platform, account_name, user) -> TradeAccount:
 
         account_id : str = None 
-        
-        match platform:
-            case Platform.meta_trader_4:
-                from .meta_trader_service import MetaTraderService
-                account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt4')
-            case Platform.meta_trader_5:
-                from .meta_trader_service import MetaTraderService
-                account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt5')
+
+        try:
+            match platform:
+                case Platform.meta_trader_4:
+                    from .meta_trader_service import MetaTraderService
+                    account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt4')
+                case Platform.meta_trader_5:
+                    from .meta_trader_service import MetaTraderService
+                    account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt5')
+        except Exception as e:
+            print(f"Error authenticating account: {str(e)}") 
+            raise Exception(f'Failed to authenticate accoun: {str(e)}t')
 
         if not account_id:
-            raise Exception('Failed to authenticate account')
+            raise Exception('Account not found')
 
         try:
             trade_account, created = TradeAccount.objects.update_or_create(
@@ -98,10 +102,10 @@ class AccountService:
                 }
             )
 
-            logger.info(f"Modified trader account: {trade_account.id}, created: {created}")
+            print(f"Modified trader account: {trade_account.id}, created: {created}")
 
         except Exception as db_error:
-            logger.error(f"Database operation failed: {str(db_error)}")
+            print(f"Database operation failed: {str(db_error)}")
             raise Exception('Failed to save account information')
         
         return trade_account

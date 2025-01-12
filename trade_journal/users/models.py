@@ -45,6 +45,18 @@ class TradeAccount(models.Model):
 
     currency = models.CharField(max_length=10, null=True, default='USD')
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user.id,
+            'account_name': self.account_name,
+            'balance': self.balance,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'status': self.status,
+            'platform': self.platform,
+        }
+
     def __str__(self):
         return f"{self.name} - ${self.balance}"
 
@@ -96,71 +108,16 @@ class ManualTrade(models.Model):
             'trade_type': self.trade_type,
             'symbol': self.symbol,
             'quantity': self.quantity,
-            'price': self.price,
+            'price': self.open_price,
             'gain': self.gain,
             'profit': self.profit,
-            'total_amount': self.total_amount,
-            'trade_date': self.trade_date,
-            'close_date': self.close_date,
+            'total_amount': self.quantity,
+            'trade_date': self.open_time,
+            'close_date': self.close_time,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'duration_in_minutes': self.duration_in_minutes,
         }
-    
-    @staticmethod
-    def from_c_trade(c_trade):
-        return ManualTrade(
-            trade_type=c_trade.side,
-            symbol=c_trade.name,
-            quantity=c_trade.amount,
-            price=c_trade.price,
-            profit=c_trade.actual_price - c_trade.price,
-            total_amount=c_trade.amount * c_trade.price,
-            trade_date=c_trade.open_time
-        )
-    
-    @staticmethod
-    def from_metatrade(metatrade_trade):
-
-        # Set the trade type
-        trade_type = 'SELL'
-        if metatrade_trade.type == 'DEAL_TYPE_BUY':
-            trade_type = 'BUY'
-
-        # Set the symbol
-        symbol = metatrade_trade.symbol
-
-        # Set the quantity
-        quantity = metatrade_trade.volume
-
-        # Set the profit
-        profit = metatrade_trade.profit
-
-        # Set the trade date
-        trade_date = metatrade_trade.open_time
-
-        close_date = metatrade_trade.close_time
-
-        gain = metatrade_trade.gain
-
-        return ManualTrade(
-            trade_type=trade_type,
-            symbol=symbol,
-            quantity=quantity,
-            price=metatrade_trade.profit,
-            gain=gain,
-            profit=profit,
-            total_amount=metatrade_trade.profit * quantity,
-            trade_date=trade_date,
-            close_date=close_date,
-            duration_in_minutes=metatrade_trade.duration_in_minutes
-        )
-
-    def save(self, *args, **kwargs):
-        # Calculate total amount if not provided
-        if not self.total_amount:
-            self.total_amount = self.quantity * self.price
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.price}"
