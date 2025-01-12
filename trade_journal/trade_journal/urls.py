@@ -39,7 +39,4 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('api/users/', include('users.urls')),
     path('api/payments/', include('payments.urls')),
-    path('api/metatrade/', include('metatrade.urls')),
-    path('api/trade_locker/', include('trade_locker.urls')),
-    path('api/c_trader/', include('ctrader.urls')),
 ]

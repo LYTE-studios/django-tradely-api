@@ -36,8 +36,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
 class TradeAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeAccount
-        fields = ['id', 'name', 'balance', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'account_name', 'balance', 'created_at', 'updated_at', 'status', 'platform']
+        read_only_fields = ['id', 'created_at', 'updated_at','status', 'platform']
 
     def validate_balance(self, value):
         if value < 0:
@@ -45,46 +45,46 @@ class TradeAccountSerializer(serializers.ModelSerializer):
         return value
 
 
-class ManualTradeSerializer(serializers.ModelSerializer):
-    total_amount = serializers.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        read_only=True
-    )
+# class ManualTradeSerializer(serializers.ModelSerializer):
+#     total_amount = serializers.DecimalField(
+#         max_digits=15,
+#         decimal_places=2,
+#         read_only=True
+#     )
 
-    class Meta:
-        model = ManualTrade
-        fields = [
-            'id', 'account', 'trade_type', 'symbol',
-            'quantity', 'price', 'profit', 'total_amount',
-            'trade_date', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'total_amount']
+#     class Meta:
+#         model = ManualTrade
+#         fields = [
+#             'id', 'account', 'trade_type', 'symbol',
+#             'quantity', 'price', 'profit', 'total_amount',
+#             'trade_date', 'created_at', 'updated_at'
+#         ]
+#         read_only_fields = ['id', 'created_at', 'updated_at', 'total_amount']
 
-    def validate(self, data):
-        # Validate trade data
-        if data.get('quantity', 0) <= 0:
-            raise serializers.ValidationError("Quantity must be greater than 0.")
+#     def validate(self, data):
+#         # Validate trade data
+#         if data.get('quantity', 0) <= 0:
+#             raise serializers.ValidationError("Quantity must be greater than 0.")
 
-        if data.get('price', 0) <= 0:
-            raise serializers.ValidationError("Price must be greater than 0.")
+#         if data.get('price', 0) <= 0:
+#             raise serializers.ValidationError("Price must be greater than 0.")
 
-        # Validate that the account belongs to the user making the request
-        request = self.context.get('request')
-        if request and request.user:
-            account = data.get('account')
-            if account and account.user != request.user:
-                raise serializers.ValidationError("You can only create trades for your own accounts.")
+#         # Validate that the account belongs to the user making the request
+#         request = self.context.get('request')
+#         if request and request.user:
+#             account = data.get('account')
+#             if account and account.user != request.user:
+#                 raise serializers.ValidationError("You can only create trades for your own accounts.")
 
-        return data
+#         return data
 
-    def create(self, validated_data):
-        # Calculate total amount during creation
-        validated_data['total_amount'] = (
-                Decimal(str(validated_data['quantity'])) *
-                Decimal(str(validated_data['price']))
-        )
-        return super().create(validated_data)
+#     def create(self, validated_data):
+#         # Calculate total amount during creation
+#         validated_data['total_amount'] = (
+#                 Decimal(str(validated_data['quantity'])) *
+#                 Decimal(str(validated_data['price']))
+#         )
+#         return super().create(validated_data)
 
 
 class TradeStatisticsSerializer(serializers.Serializer):

@@ -1,14 +1,6 @@
-from concurrent.futures import ThreadPoolExecutor
-from decimal import Decimal
 
-from datetime import datetime
-import requests
 from django.utils import timezone
 from django.contrib.auth import authenticate
-from django.db import transaction
-from django.db.models import Sum
-from metatrade.models import Trade
-from metatrade.services import MetaApiService
 from rest_framework import permissions, viewsets, generics
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -17,8 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
-from trade_locker.models import TraderLockerAccount, OrderHistory
-from .services import TradeService
+from .services import TradeService, AccountService
 
 from .email_service import brevo_email_service
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote, UploadedFile
@@ -26,7 +17,6 @@ from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
     TradeAccountSerializer,
-    ManualTradeSerializer,
     TradeNoteSerializer
 )
 
@@ -35,6 +25,53 @@ class HelloThereView(generics.GenericAPIView):
 
     def get(self, request):
         return Response({'message': 'Hello There!'})
+    
+class AuthenticateAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        server_name = request.data.get('server_name')
+        account_name = request.data.get('account_name')
+        username = request.data.get('username')
+        password = request.data.get('password')
+        platform = request.data.get('platform')
+
+        if not all([server_name, username, password, platform]):
+            return Response(
+                {'error': 'All fields are required: server_name, username, password, and platform.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            AccountService.authenticate(username, password, server_name, platform, account_name)
+            return Response({'message': 'Account authenticated.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class DeleteAccount(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        account_id = kwargs['account_id']
+
+        if not account_id:
+            return Response({'error': 'All fields are required: account_id.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try: 
+            account = TradeAccount.objects.get(id=account_id)
+        except TradeAccount.DoesNotExist:
+            return Response({'error': 'Account not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        AccountService.delete_account(account)
+
+        return Response({
+            'message': 'Account deleted.'
+        }, status=status.HTTP_200_OK)
 
 
 class UserRegisterView(generics.CreateAPIView):
@@ -149,21 +186,6 @@ class TradeAccountViewSet(BaseModelViewSet):
         return serializer.save(user=self.request.user)
 
 
-class ManualTradeViewSet(BaseModelViewSet):
-    serializer_class = ManualTradeSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        # Get trades from accounts owned by the current user
-        return ManualTrade.objects.filter(account__user=self.request.user)
-
-    def perform_create(self, serializer):
-        # Ensure the account belongs to the current user
-        account = serializer.validated_data.get('account')
-        if not account.user == self.request.user:
-            raise ValidationError("You can only add trades to your own accounts.")
-        serializer.save()
-
 class TradeNoteViewSet(viewsets.ModelViewSet):
     queryset = TradeNote.objects.all()
     serializer_class = TradeNoteSerializer
@@ -220,8 +242,8 @@ class AccountsSummaryView(APIView):
 
     def get(self, request):
         try:
-            accounts_summary = TradeService.get_all_accounts(request.user)
-            return Response(accounts_summary, status=status.HTTP_200_OK)
+            accounts = TradeService.get_all_accounts(request.user)
+            return Response({'accounts': accounts}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
                 {"error": f"Error fetching accounts: {str(e)}"}, 
@@ -254,6 +276,8 @@ class ComprehensiveTradeStatisticsView(APIView):
         if from_date and until_date:
             parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
             parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
+
+        AccountService.cache_account_task(request.user)
             
         # Fetch trades using the service method with optional datetime filtering
         trades = TradeService.get_all_trades(
@@ -263,7 +287,9 @@ class ComprehensiveTradeStatisticsView(APIView):
         )
         
         accounts = TradeService.get_all_accounts(request.user)
+
         statistics = TradeService.calculate_statistics(trades, accounts)
+
         return Response(statistics)
     
 class AccountBalanceView(APIView):
@@ -306,14 +332,13 @@ class RefreshAllAccountsView(APIView):
         force_refresh = request.data.get('force_refresh', True)
         
         try:
-            refresh_summary = TradeService.refresh_all_accounts(
-                request.user, 
-                force_refresh=force_refresh
-            )
-            
+            if force_refresh:
+                AccountService.cache_account_force(request.user)
+            else:
+                AccountService.cache_account_task(request.user)
+
             return Response({
-                'message': 'Refresh complete',
-                'summary': refresh_summary
+                'message': 'Refresh complete'
             }, status=status.HTTP_200_OK)
             
         except Exception as e:

@@ -6,7 +6,6 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
-from trade_locker.models import TraderLockerAccount
 from .models import TradeAccount, ManualTrade, TradeNote
 from .services import TradeService
 
