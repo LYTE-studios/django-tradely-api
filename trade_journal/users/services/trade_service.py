@@ -54,7 +54,7 @@ class TradeService:
 
         balance_chart = {}
 
-        def add_for_date(date):
+        def add_for_date(date, disallow_zero=False):
             trades_up_to_point = [
                 trade for trade in trades 
                 if trade.close_time <= date
@@ -65,7 +65,12 @@ class TradeService:
                trade.profit for trade in trades_up_to_point
             )
 
+            if cumulative_profit == 0 and disallow_zero:
+                return
+
             balance_chart[date.strftime('%Y-%m-%d %H:%M:%S')] = cumulative_profit
+
+        add_for_date(from_date, disallow_zero=True)
 
         for trade in trades:
             add_for_date(trade.close_time)
