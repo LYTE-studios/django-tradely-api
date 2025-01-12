@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 from .services import TradeService, AccountService
+from asgiref.sync import async_to_sync
+
 
 from .email_service import brevo_email_service
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote, UploadedFile
@@ -276,8 +278,6 @@ class ComprehensiveTradeStatisticsView(APIView):
         if from_date and until_date:
             parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
             parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
-
-        AccountService.cache_account_task(request.user)
             
         # Fetch trades using the service method with optional datetime filtering
         trades = TradeService.get_all_trades(
@@ -329,22 +329,13 @@ class RefreshAllAccountsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        force_refresh = request.data.get('force_refresh', True)
+        force_refresh = request.data.get('force_refresh', False)
         
-        try:
-            if force_refresh:
-                AccountService.cache_account_force(request.user)
-            else:
-                AccountService.cache_account_task(request.user)
+        async_to_sync(AccountService.check_refresh)(request.user, force_refresh=force_refresh)
 
-            return Response({
-                'message': 'Refresh complete'
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response({
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({
+            'message': 'Refresh complete'
+        }, status=status.HTTP_200_OK)
     
 class UserGetAllTradesView(APIView):
     def get(self, request):
@@ -397,6 +388,4 @@ class UploadFileView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        from django.conf import settings
-
-        return Response({"url": str(str(settings.STATIC_URL[:-1]) + uploaded_file.file.url)}, status=status.HTTP_201_CREATED)
+        return Response({"url": uploaded_file.file.url}, status=status.HTTP_201_CREATED)

@@ -1,5 +1,5 @@
 from ..decorators import ensure_event_loop
-from ..models import ManualTrade
+from ..models import ManualTrade, TradeType
 import logging
 logger = logging.getLogger(__name__)
 import asyncio
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from metaapi_cloud_sdk import MetaApi, MetaStats
 from trade_journal.my_secrets import meta_api_key
 import uuid
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 
 class MetaTraderService:
     
@@ -30,10 +30,9 @@ class MetaTraderService:
 
             # Fetch and update trades
             meta_trades = await self.get_meta_trades(account.account_id)
-            await self.update_trades(meta_trades, account.account_id)
+            await self.update_trades(meta_trades, account)
 
-            # await connection.close()
-            await meta_account.undeploy()
+            asyncio.create_task(meta_account.undeploy())
 
         except Exception as e:
             print(f"Error refreshing account {account.account_id}: {str(e)}")
@@ -65,17 +64,27 @@ class MetaTraderService:
             print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
         
-    async def update_trades(self, meta_trades, account_id):
+    async def update_trades(self, meta_trades, account):
+
+        from django.utils.dateparse import parse_datetime
+        from django.utils.timezone import is_aware, make_aware
+
+        def get_aware_datetime(date_str):
+            ret = parse_datetime(date_str)
+            if not is_aware(ret):
+                ret = make_aware(ret)
+            return ret
+
         for trade in meta_trades:
             if trade['type'] == 'DEAL_TYPE_BALANCE':
                 await sync_to_async(ManualTrade.objects.update_or_create)(
-                    account_id=account_id,
+                    account=account,
                     exchange_id=str(trade['_id']).split('+')[1],
                     defaults={
                         'profit': trade['profit'],
                         'gain': 0,
-                        'open_time': trade['openTime'],
-                        'close_time': trade['openTime'],
+                        'open_time': get_aware_datetime(trade['openTime']),
+                        'close_time': get_aware_datetime(trade['openTime']),
                         'is_top_up': True,
                     }
                 )
@@ -83,13 +92,13 @@ class MetaTraderService:
                 trade_type = None
 
                 if trade['type'] == 'DEAL_TYPE_SELL':
-                    trade_type = 'SELL'
+                    trade_type = TradeType.sell
                 elif trade['type'] == 'DEAL_TYPE_BUY':
-                    trade_type = 'BUY'
+                    trade_type = TradeType.buy
 
                 await sync_to_async(ManualTrade.objects.update_or_create)(
-                    account_id=account_id,
-                    trade_id=str(trade['_id']).split('+')[1],
+                    account=account,
+                    exchange_id=str(trade['_id']).split('+')[1],
                     defaults={
                         'trade_type': trade_type,
                         'symbol': trade['symbol'],
@@ -99,10 +108,11 @@ class MetaTraderService:
                         'profit': trade['profit'],
                         'gain': trade['gain'],
                         'duration_in_minutes': trade['durationInMinutes'],
-                        'open_time': trade['openTime'],
-                        'close_time': trade['closeTime'],
+                        'open_time': get_aware_datetime(trade['openTime']),
+                        'close_time': get_aware_datetime(trade['closeTime']),
                     }
                 )
+
 
     @staticmethod
     async def authenticate(server, username, password, platform) -> str:
@@ -117,16 +127,19 @@ class MetaTraderService:
                 'server': server,
                 'platform': platform,
                 'magic': 1000,
+                'metastatsApiEnabled': True,
             })
 
-            await account.wait_deployed()
+            async def deploy_account():
 
-            await account.enable_metastats_api()
+                await account.wait_deployed()
 
-            await account.create_replica({
-                'region': 'new-york',
-                'magic': 1000,
-            })
+                await account.create_replica({
+                    'region': 'new-york',
+                    'magic': 1000,
+                })
+
+            asyncio.create_task(deploy_account)()
 
             print(f"Successfully created MetaApi account: {account.id}")
 
@@ -139,6 +152,5 @@ class MetaTraderService:
             raise meta_error
 
     @staticmethod
-    @ensure_event_loop
-    def authenticate_sync(server, username, password, platform , loop=None):
-        return loop.run_until_complete(MetaTraderService.authenticate(server, username, password, platform))
+    def authenticate_sync(server, username, password, platform):
+        return async_to_sync(MetaTraderService.authenticate)(server, username, password, platform)

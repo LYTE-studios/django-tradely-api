@@ -45,8 +45,8 @@ SECRET_KEY = 'django-insecure-x_sw%8brm-=kg4d)fbpup$d!j!=s6sg7bz!-olora(7)virst9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 from .my_secrets import AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
 
@@ -59,12 +59,8 @@ AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
 # s3 static settings
 STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
-# Media files (user-uploaded files)
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-# Static files
-STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -94,6 +90,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'users',
     'payments',
+    'storages',
 ]
 
 MIDDLEWARE = [

@@ -1,5 +1,4 @@
 from typing import List, Dict
-from decimal import Decimal
 from datetime import datetime
 
 from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
@@ -13,16 +12,21 @@ class TradeService:
         """
         Fetches all trades from different sources and normalizes them
         """
-        trades = ManualTrade.objects.filter(account__user=user, account__status=AccountStatus.active)
-        
+        trades = ManualTrade.objects.filter(account__user=user)
+
         # Get manual trades
         if from_date and to_date:
-            trades = trades.filter(account__user=user, close_date__range=(from_date, to_date))
+            from django.utils.timezone import make_aware
+
+            from_date = make_aware(from_date)
+            to_date = make_aware(to_date)
+
+            trades = trades.filter(close_time__range=(from_date, to_date))
 
         if not include_deposits:
             trades = trades.filter(is_top_up=False)
 
-        return trades.order_by('close_time').values()
+        return trades.order_by('-close_time').all()
 
     @staticmethod
     def get_account_balance_chart(user, from_date: timezone.datetime = None, to_date: timezone.datetime = None) -> Dict:
@@ -38,7 +42,11 @@ class TradeService:
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
         else:
-            from_date = trades.last().close_time - timezone.timedelta(days=1)
+            last_trade = trades.last()
+            if last_trade:
+                from_date = trades.last().close_time - timezone.timedelta(days=1)
+            else: 
+                from_date = timezone.now() - timezone.timedelta(days=30)
             to_date = timezone.now()
 
         if not trades:
@@ -54,7 +62,7 @@ class TradeService:
 
             # Calculate cumulative profit/loss
             cumulative_profit = sum(
-                Decimal(str(trade.profit)) for trade in trades_up_to_point
+               trade.profit for trade in trades_up_to_point
             )
 
             balance_chart[date.strftime('%Y-%m-%d %H:%M:%S')] = cumulative_profit
@@ -91,7 +99,7 @@ class TradeService:
         Gets performance metrics for all accounts
         """
         performance = {
-            'total_profit': Decimal('0'),
+            'total_profit': 0,
             'total_trades': 0,
             'accounts_performance': [],
         }
@@ -220,10 +228,10 @@ class TradeService:
         if not trades:
             return {
                 'overall_statistics': {
-                    'balance': Decimal('0'),
+                    'balance': 0,
                     'total_trades': 0,
-                    'total_profit': Decimal('0'),
-                    'total_invested': Decimal('0'),
+                    'total_profit': 0,
+                    'total_invested': 0,
                     'win_rate': 0,
                     'long': 0,
                     'short': 0,
@@ -252,7 +260,7 @@ class TradeService:
 
         total_invested = sum(trade.quantity for trade in trades)
 
-        winning_trades = len([t for t in trades if trade.profit > 0])
+        winning_trades = len([t for t in trades if t.profit > 0])
 
         long = len([t for t in trades if t.trade_type == TradeType.buy])
         short = len([t for t in trades if t.trade_type == TradeType.sell])
@@ -280,7 +288,7 @@ class TradeService:
         if total_lost == 0:
             profit_factor = 0
         else:
-            profit_factor = Decimal(str(total_won / total_lost))
+            profit_factor = total_won / total_lost
         timed_trades = [t.duration_in_minutes for t in trades if t.duration_in_minutes > 0]
         average_holding_time_minutes = 0
 
@@ -298,8 +306,8 @@ class TradeService:
                 symbol_stats[symbol] = {
                     'symbol': symbol,
                     'total_trades': 0,
-                    'total_profit': Decimal('0'),
-                    'total_invested': Decimal('0')
+                    'total_profit': 0,
+                    'total_invested': 0
                 }
             
             symbol_stats[symbol]['total_trades'] += 1
@@ -319,10 +327,10 @@ class TradeService:
                 day_performances[day_key] = {
                     'day': day_key,
                     'total_trades': 0,
-                    'total_profit': Decimal('0'),
-                    'total_won': Decimal('0'),
-                    'total_loss': Decimal('0'),
-                    'total_invested': Decimal('0')
+                    'total_profit': 0,
+                    'total_won': 0,
+                    'total_loss': 0,
+                    'total_invested': 0,
                 }
             
             day_performances[day_key]['total_trades'] += 1
@@ -347,8 +355,8 @@ class TradeService:
                 monthly_stats[month_key] = {
                     'month': month_key,
                     'total_trades': 0,
-                    'total_profit': Decimal('0'),
-                    'total_invested': Decimal('0')
+                    'total_profit': 0,
+                    'total_invested': 0,
                 }
             
             monthly_stats[month_key]['total_trades'] += 1

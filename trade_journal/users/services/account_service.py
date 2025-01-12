@@ -4,7 +4,6 @@ import asyncio
 import logging
 logger = logging.getLogger(__name__)
 from django.utils import timezone
-from ..decorators import ensure_event_loop
 from asgiref.sync import sync_to_async
 from ..models import Platform
 
@@ -41,35 +40,23 @@ class AccountService:
             case Platform.meta_trader_4 | Platform.meta_trader_5:
                 await MetaTraderService().refresh_account(account)
 
-        sync_to_async(AccountService.update_account_cache)(account)
+        await sync_to_async(AccountService.update_account_cache)(account)
 
     @staticmethod
     async def check_refresh(user, force_refresh=False):
-        def needs_refresh(account: TradeAccount) -> bool:
+        def needs_refresh(account: TradeAccount) -> bool:            
             if not account.cached_at or not account.cached_until:
                 return True
+            
             return account.cached_until <= timezone.now()
         
-        _refresh_lock = asyncio.Lock()
+        accounts = await sync_to_async(TradeAccount.objects.filter)(user=user)
+        
+        async for account in accounts:
+            if not force_refresh and not needs_refresh(account):
+                continue
 
-        async with _refresh_lock:
-            accounts = await sync_to_async(TradeAccount.objects.filter)(user=user)
-            async for account in accounts:
-                if not force_refresh and not needs_refresh(
-                        account.cached_at, account.cached_until
-                ):
-                    continue
-                await AccountService.refresh_account(account)
-
-    @staticmethod
-    @ensure_event_loop
-    def cache_account_force(user, loop=None):
-        loop.run_until_complete(AccountService.check_refresh(user, True))
-
-    @staticmethod
-    @ensure_event_loop
-    def cache_account_task(user, loop=None):
-        loop.create_task(AccountService.check_refresh(user, False))
+            await AccountService.refresh_account(account)
 
     @staticmethod
     def authenticate(username, password, server, platform, account_name, user) -> TradeAccount:
