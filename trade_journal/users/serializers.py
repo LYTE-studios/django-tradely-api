@@ -13,6 +13,19 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
+
+        email = validated_data.get('email')
+
+        whitelist = 'tradely.io'
+
+        if whitelist in email:
+            user = User(**validated_data)
+            user.set_password(validated_data['password'])
+            user.save()
+            return user
+        else:
+            raise serializers.ValidationError('Email not allowed')
+
         user = User(**validated_data)
         user.set_password(validated_data['password'])
         user.save()

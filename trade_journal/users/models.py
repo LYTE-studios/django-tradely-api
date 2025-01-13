@@ -148,10 +148,10 @@ class UploadedFile(models.Model):
 
         name = int(now.timestamp())
 
-        return f'uploaded_files/{now.year}/{now.month}/{name}.{extension}'
+        return f'uploaded_files/{name}/{filename}'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.FileField(upload_to=upload_location)
+    file = models.ImageField(upload_to=upload_location, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
