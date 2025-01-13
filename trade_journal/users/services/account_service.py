@@ -11,12 +11,14 @@ class AccountService:
 
     @staticmethod
     def delete_account(account: TradeAccount):
-        account.delete()
-        print(f"Deleted account: {account.id}")
-
         # Delete all trades associated with the account
         ManualTrade.objects.filter(account=account).delete()
         print(f"Deleted trades for account: {account.id}")
+
+        account.delete()
+        print(f"Deleted account: {account.id}")
+
+
 
     @staticmethod
     def calculate_account_balance(account: TradeAccount):

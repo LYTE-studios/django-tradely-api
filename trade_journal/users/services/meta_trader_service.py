@@ -32,7 +32,7 @@ class MetaTraderService:
             meta_trades = await self.get_meta_trades(account.account_id)
             await self.update_trades(meta_trades, account)
 
-            asyncio.create_task(meta_account.undeploy())
+            await meta_account.undeploy()
 
         except Exception as e:
             print(f"Error refreshing account {account.account_id}: {str(e)}")
@@ -139,7 +139,7 @@ class MetaTraderService:
                     'magic': 1000,
                 })
 
-            asyncio.create_task(deploy_account)()
+            await deploy_account()
 
             print(f"Successfully created MetaApi account: {account.id}")
 
