@@ -1,5 +1,5 @@
 from ..decorators import ensure_event_loop
-from ..models import ManualTrade, TradeType
+from ..models import ManualTrade, TradeAccount, TradeType
 import logging
 logger = logging.getLogger(__name__)
 import asyncio
@@ -127,23 +127,20 @@ class MetaTraderService:
                 'server': server,
                 'platform': platform,
                 'magic': 1000,
-                'metastatsApiEnabled': True,
             })
 
-            async def deploy_account():
+            await account.wait_deployed()
 
-                await account.wait_deployed()
+            await account.enable_metastats_api()
 
-                await account.create_replica({
-                    'region': 'new-york',
-                    'magic': 1000,
-                })
-
-            await deploy_account()
+            await account.create_replica({
+                'region': 'new-york',
+                'magic': 1000,
+            })
 
             print(f"Successfully created MetaApi account: {account.id}")
 
-            return account.id
+            return account.id, account.base_currency
 
         except Exception as meta_error:
             print(f"MetaApi create_account failed: {str(meta_error)}")
