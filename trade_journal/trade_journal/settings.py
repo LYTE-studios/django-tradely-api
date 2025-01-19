@@ -21,20 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
 
-from .my_secrets import sentry_dsn
-
-sentry_sdk.init(
-    dsn=sentry_dsn,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
-    traces_sample_rate=1.0,
-    _experiments={
-        # Set continuous_profiling_auto_start to True
-        # to automatically start the profiler on when
-        # possible.
-        "continuous_profiling_auto_start": True,
-    },
-)
+# from .my_secrets import sentry_dsn
+#
+# sentry_sdk.init(
+#     dsn=sentry_dsn,
+#     # Set traces_sample_rate to 1.0 to capture 100%
+#     # of transactions for tracing.
+#     traces_sample_rate=1.0,
+#     _experiments={
+#         # Set continuous_profiling_auto_start to True
+#         # to automatically start the profiler on when
+#         # possible.
+#         "continuous_profiling_auto_start": True,
+#     },
+# )
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -43,7 +43,7 @@ sentry_sdk.init(
 SECRET_KEY = 'django-insecure-x_sw%8brm-=kg4d)fbpup$d!j!=s6sg7bz!-olora(7)virst9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 from .my_secrets import AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
 
@@ -51,26 +51,27 @@ AWS_S3_REGION_NAME = 'eu-central-1'
 AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY = AWS_SECRET_ACCESS_KEY
 AWS_STORAGE_BUCKET_NAME = "tradely-public"
-AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.eu-central-1.amazonaws.com'
 AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 AWS_DEFAULT_ACL = 'public-read'
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+DEFAULT_FILE_STORAGE = 'users.storage_backend.MediaStorage'
 STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 # s3 static settings
-STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    "api.tradely.lytestudios.be",
+    # 'localhost',
+    # '127.0.0.1',
+    # "api.tradely.lytestudios.be",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://api.tradely.lytestudios.be',
-    'http://api.tradely.lytestudios.be'
+    # 'https://api.tradely.lytestudios.be',
+    # 'http://api.tradely.lytestudios.be'
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -104,6 +105,7 @@ MIDDLEWARE = [
     'payments.middleware.EmailServiceMiddleware',
     'corsheaders.middleware.CorsMiddleware',    
     'django.middleware.common.CommonMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'trade_journal.urls'
@@ -136,11 +138,11 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 from .my_secrets import database
 
 DATABASES = {
-    'default': database,
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
+    # 'default': database,
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 

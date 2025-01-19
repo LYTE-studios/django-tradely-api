@@ -2,11 +2,14 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from .storage_backend import MediaStorage
+
 
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
     date_of_birth = models.DateField(null=True, blank=True)
+
 
 # -- Trade specific --
 
@@ -14,19 +17,21 @@ class AccountStatus(models.TextChoices):
     active = 'Active'
     inactive = 'Inactive'
 
+
 class Platform(models.TextChoices):
     meta_trader_4 = 'MetaTrader4'
     meta_trader_5 = 'MetaTrader5'
     trade_locker = 'TradeLocker'
-    c_trader =  'CTrader'
-    manual =  'Manual'
+    c_trader = 'CTrader'
+    manual = 'Manual'
+
 
 class TradeType(models.TextChoices):
     buy = 'Buy'
     sell = 'Sell'
 
-class TradeAccount(models.Model):
 
+class TradeAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_accounts')
 
     account_id = models.CharField(max_length=255, null=True)
@@ -62,10 +67,9 @@ class TradeAccount(models.Model):
 
 
 class ManualTrade(models.Model):
-    
     account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades', null=True,
                                 blank=True)
-    
+
     # Foreign Reference
     exchange_id = models.CharField(max_length=64, null=True)
 
@@ -87,7 +91,7 @@ class ManualTrade(models.Model):
 
     # Profit in symbol currency
     profit = models.FloatField(default=0.0, null=True, blank=True)
-    
+
     # Open - Close time
     open_time = models.DateTimeField(null=True, blank=True)
     close_time = models.DateTimeField(null=True, blank=True)
@@ -135,10 +139,10 @@ class TradeNote(models.Model):
 
     def __str__(self):
         return f"Note for {self.trade.symbol} trade" if self.trade else f"Note for {self.note_date}"
-    
+
 
 class UploadedFile(models.Model):
-        
+
     def upload_location(instance, filename):
         extension = filename.split('.')[-1]
 
@@ -151,7 +155,7 @@ class UploadedFile(models.Model):
         return f'uploaded_files/{name}/{filename}'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.ImageField(upload_to=upload_location, null=True, blank=True)
+    file = models.ImageField(upload_to=upload_location, null=True, blank=True, storage=MediaStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
