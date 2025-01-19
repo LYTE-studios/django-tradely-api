@@ -1,4 +1,3 @@
-from ..decorators import ensure_event_loop
 from ..models import ManualTrade, TradeAccount, TradeType
 import logging
 logger = logging.getLogger(__name__)
