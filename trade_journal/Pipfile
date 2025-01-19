@@ -25,6 +25,7 @@ uvicorn = "*"
 ejtraderct = "*"
 uvloop = "*"
 python-dateutil = "*"
+whitenoise = "*"
 
 [dev-packages]
 
