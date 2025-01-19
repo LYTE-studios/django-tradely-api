@@ -19,7 +19,6 @@ class AccountService:
         print(f"Deleted account: {account.id}")
 
 
-
     @staticmethod
     def calculate_account_balance(account: TradeAccount):
         trades = ManualTrade.objects.filter(account=account)
@@ -65,14 +64,37 @@ class AccountService:
 
         account_id : str = None 
 
+        import json
+
+        base_credentials = json.dumps({"username": username, "password": password, "server": server, "platform": platform,})
+
+        try:
+            existing_account = TradeAccount.objects.get(credentials=base_credentials)
+        except TradeAccount.DoesNotExist:
+            existing_account = None
+
+        if existing_account:
+            trade_account, created = TradeAccount.objects.update_or_create(
+                account_id=existing_account.account_id,
+                user=user,
+                defaults={
+                    'credentials': base_credentials,
+                    'account_name': account_name,
+                    'status': 'active',
+                    'platform': platform,
+                    'currency': existing_account.currency,
+                }
+            )
+            return trade_account
+        
         try:
             match platform:
                 case Platform.meta_trader_4:
                     from .meta_trader_service import MetaTraderService
-                    account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt4')
+                    account_id, currency =  MetaTraderService.authenticate_sync(server, username, password, 'mt4')
                 case Platform.meta_trader_5:
                     from .meta_trader_service import MetaTraderService
-                    account_id =  MetaTraderService.authenticate_sync(server, username, password, 'mt5')
+                    account_id, currency =  MetaTraderService.authenticate_sync(server, username, password, 'mt5')
         except Exception as e:
             print(f"Error authenticating account: {str(e)}") 
             raise Exception(f'Failed to authenticate accoun: {str(e)}t')
@@ -88,6 +110,7 @@ class AccountService:
                     'account_name': account_name,
                     'status': 'active',
                     'platform': platform,
+                    'currency': currency,
                 }
             )
 

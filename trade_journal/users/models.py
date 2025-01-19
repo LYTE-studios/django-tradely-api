@@ -33,21 +33,16 @@ class TradeType(models.TextChoices):
 
 class TradeAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_accounts')
-
     account_id = models.CharField(max_length=255, null=True)
     account_name = models.CharField(max_length=255, null=True)
-
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-
     cached_at = models.DateTimeField(null=True)
     cached_until = models.DateTimeField(null=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     platform = models.CharField(max_length=64, choices=Platform.choices, default=Platform.manual)
     status = models.CharField(max_length=64, choices=AccountStatus.choices, default=AccountStatus.active)
-
+    credentials  = models.CharField(max_length=256, null=True)
     currency = models.CharField(max_length=10, null=True, default='USD')
 
     def to_dict(self):
@@ -58,8 +53,10 @@ class TradeAccount(models.Model):
             'balance': self.balance,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
+            'cached_until': self.cached_until,
             'status': self.status,
             'platform': self.platform,
+            'currency': self.currency,
         }
 
     def __str__(self):
@@ -121,6 +118,7 @@ class ManualTrade(models.Model):
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'duration_in_minutes': self.duration_in_minutes,
+            'currency': self.account.currency,
         }
 
     def __str__(self):
