@@ -20,7 +20,7 @@ from .views import (
     LeaderBoardView,
     UserProfileView,
     DeleteAccount,
-    AuthenticateAccountView,
+    AuthenticateAccountView, ToggleUserAccountStatus,
 )
 
 # Create a router for the viewsets
@@ -70,4 +70,7 @@ urlpatterns = [
     path('upload-file/', UploadFileView.as_view(), name='upload-file'),
     # Include the router URLs for trade accounts and manual trades
     path('', include(router.urls)),
+
+    # Toggle user account mode
+    path('toggle-account-mode/<str:account_id>/', ToggleUserAccountStatus.as_view(), name='toggle-account-mode'),
 ]

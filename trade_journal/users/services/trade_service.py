@@ -89,17 +89,20 @@ class TradeService:
 
     
     @staticmethod
-    def get_all_accounts(user, status=None) -> List[TradeAccount]:
+    def get_all_accounts(user, status=None, disabled=None) -> List[TradeAccount]:
 
         accounts = TradeAccount.objects.filter(user=user)
 
         if status:
             accounts = accounts.filter(status=status)
+
+        if disabled is not None:
+            accounts = accounts.filter(disabled=disabled)
         
         return accounts
     
     @staticmethod
-    def get_account_performance(user) -> Dict:
+    def get_account_performance(user, disabled=None) -> Dict:
         """
         Gets performance metrics for all accounts
         """
@@ -118,7 +121,7 @@ class TradeService:
             performance['total_trades'] += 1
 
         # Get account-specific performance
-        accounts = TradeService.get_all_accounts(user)
+        accounts = TradeService.get_all_accounts(user, disabled=disabled)
 
         for account in accounts:
             account_trades = [t for t in trades if t.account.id == account.id]
