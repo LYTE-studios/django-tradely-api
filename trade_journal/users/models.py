@@ -64,6 +64,7 @@ class TradeAccount(models.Model):
 
 
 class ManualTrade(models.Model):
+    id = models.AutoField(primary_key=True)
     account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades', null=True,
                                 blank=True)
 
@@ -102,6 +103,8 @@ class ManualTrade(models.Model):
     # System
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    active = models.BooleanField(default=False)
+
 
     def to_dict(self):
         return {
@@ -119,6 +122,7 @@ class ManualTrade(models.Model):
             'updated_at': self.updated_at,
             'duration_in_minutes': self.duration_in_minutes,
             'currency': self.account.currency,
+            'active': self.active
         }
 
     def __str__(self):
