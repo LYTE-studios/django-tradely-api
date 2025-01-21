@@ -1,6 +1,6 @@
-from typing import List, Dict
+from typing import Dict, List, Optional
 from datetime import datetime
-
+from django.utils.timezone import make_aware
 from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
 from dateutil.parser import parse
 from django.utils import timezone
@@ -8,26 +8,85 @@ from django.utils import timezone
 class TradeService:
 
     @staticmethod
-    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None, include_deposits=False) -> List[ManualTrade]:
+    def get_all_trades(user, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None, include_deposits=False) -> List[ManualTrade]:
         """
-        Fetches all trades from different sources and normalizes them
+        Fetches all trades from different sources and normalizes them.
         """
         trades = ManualTrade.objects.filter(account__user=user)
 
-        # Get manual trades
+        # Get manual trades within the specified date range
         if from_date and to_date:
-            from django.utils.timezone import make_aware
-
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
-
             trades = trades.filter(close_time__range=(from_date, to_date))
 
         if not include_deposits:
             trades = trades.filter(is_top_up=False)
 
         return trades.order_by('-close_time').all()
-
+    
+    @staticmethod
+    def get_trade_statistics(user, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None) -> Dict:
+        """
+        Calculates trade statistics excluding trades with gains below threshold.
+        """
+        # Use existing method to get trades
+        trades = TradeService.get_all_trades(user, from_date, to_date)
+        
+        statistics = {
+            'total_trades': 0,
+            'winning_trades': 0,
+            'losing_trades': 0,
+            'trades_below_threshold': 0,
+            'win_rate': 0,
+            'total_profit': 0,
+            'average_win': 0,
+            'average_loss': 0
+        }
+        
+        # Lists to store wins and losses for averaging
+        winning_amounts = []
+        losing_amounts = []
+        
+        MIN_GAIN_THRESHOLD = 0.02  # Can be moved to settings or constants file
+        
+        for trade in trades:
+            # Skip trades that don't have gain calculated
+            if trade.gain is None:
+                continue
+                
+            gain = float(trade.gain)
+            statistics['total_profit'] += trade.profit
+            
+            # Check if trade should be counted based on threshold
+            if abs(gain) < MIN_GAIN_THRESHOLD:
+                statistics['trades_below_threshold'] += 1
+                continue
+                
+            statistics['total_trades'] += 1
+            
+            if gain > 0:
+                statistics['winning_trades'] += 1
+                winning_amounts.append(trade.profit)
+            else:
+                statistics['losing_trades'] += 1
+                losing_amounts.append(trade.profit)
+        
+        # Calculate win rate
+        if statistics['total_trades'] > 0:
+            statistics['win_rate'] = round(
+                (statistics['winning_trades'] / statistics['total_trades']) * 100, 
+                2
+            )
+        
+        # Calculate averages
+        if winning_amounts:
+            statistics['average_win'] = sum(winning_amounts) / len(winning_amounts)
+        
+        if losing_amounts:
+            statistics['average_loss'] = sum(losing_amounts) / len(losing_amounts)
+        
+        return statistics
     @staticmethod
     def get_account_balance_chart(user, from_date: timezone.datetime = None, to_date: timezone.datetime = None) -> Dict:
         """

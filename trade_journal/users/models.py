@@ -4,6 +4,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from .storage_backend import MediaStorage
 
+MIN_GAIN_THRESHOLD = 0.02
 
 class CustomUser(AbstractUser):
     # Any additional fields can go here
@@ -85,8 +86,7 @@ class ManualTrade(models.Model):
     close_price = models.DecimalField(max_digits=25, decimal_places=5, null=True)
 
     # NET ROI Gain
-    gain = models.FloatField(default=0.0, null=True, blank=True)
-
+    gain = models.DecimalField(max_digits=10, decimal_places=4, null=True)
     # Profit in symbol currency
     profit = models.FloatField(default=0.0, null=True, blank=True)
 
@@ -125,9 +125,17 @@ class ManualTrade(models.Model):
             'active': self.active
         }
 
+    def should_count_for_statistics(self):
+        """
+        Determines if this trade should be counted in win/loss statistics
+        based on the gain threshold
+        """
+        if self.gain is None:
+            return False
+        return abs(float(self.gain)) >= MIN_GAIN_THRESHOLD
+
     def __str__(self):
         return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.price}"
-
 
 # -- Note specific --
 
