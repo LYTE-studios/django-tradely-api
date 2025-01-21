@@ -1,6 +1,6 @@
-from ..decorators import ensure_event_loop
 from ..models import ManualTrade, TradeAccount, TradeType
 import logging
+
 logger = logging.getLogger(__name__)
 import asyncio
 from datetime import datetime, timedelta
@@ -10,8 +10,9 @@ from trade_journal.my_secrets import meta_api_key
 import uuid
 from asgiref.sync import sync_to_async, async_to_sync
 
+
 class MetaTraderService:
-    
+
     def __init__(self):
         self._meta_api = None
 
@@ -30,14 +31,19 @@ class MetaTraderService:
 
             # Fetch and update trades
             meta_trades = await self.get_meta_trades(account.account_id)
+
             await self.update_trades(meta_trades, account)
+            # get current open trade
+            meta_open_trades = await self.get_meta_open_trades(account.account_id)
+
+            await self.update_trades(meta_open_trades, account, True)
 
             await meta_account.undeploy()
 
         except Exception as e:
             print(f"Error refreshing account {account.account_id}: {str(e)}")
             raise
-    
+
     async def get_meta_trades(self, account_id: str):
         meta_stats = MetaStats(meta_api_key, {
             'requestTimeout': 60000,
@@ -63,8 +69,33 @@ class MetaTraderService:
         except Exception as e:
             print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
-        
-    async def update_trades(self, meta_trades, account):
+
+
+    async def get_meta_open_trades(self, account_id: str):
+        meta_stats = MetaStats(meta_api_key, {
+            'requestTimeout': 60000,
+            'retryOpts': {
+                'retries': 3,
+                'minDelayInMilliseconds': 1000,
+                'maxDelayInMilliseconds': 3000
+            }
+        })
+
+        try:
+            return await asyncio.wait_for(
+                meta_stats.get_account_open_trades(
+                    account_id
+                ),
+                timeout=30
+            )
+        except asyncio.TimeoutError:
+            print(f"Timeout while fetching trades for account {account_id}")
+            return []
+        except Exception as e:
+            print(f"Error fetching trades for account {account_id}: {str(e)}")
+            return []
+
+    async def update_trades(self, meta_trades, account, active=False):
 
         from django.utils.dateparse import parse_datetime
         from django.utils.timezone import is_aware, make_aware
@@ -86,6 +117,7 @@ class MetaTraderService:
                         'open_time': get_aware_datetime(trade['openTime']),
                         'close_time': get_aware_datetime(trade['openTime']),
                         'is_top_up': True,
+                        'active': active
                     }
                 )
             else:
@@ -95,7 +127,9 @@ class MetaTraderService:
                     trade_type = TradeType.sell
                 elif trade['type'] == 'DEAL_TYPE_BUY':
                     trade_type = TradeType.buy
-
+                close_time = trade.get('closeTime', None)
+                if close_time is not None:
+                    close_time = get_aware_datetime(trade['closeTime'])
                 await sync_to_async(ManualTrade.objects.update_or_create)(
                     account=account,
                     exchange_id=str(trade['_id']).split('+')[1],
@@ -104,15 +138,15 @@ class MetaTraderService:
                         'symbol': trade['symbol'],
                         'quantity': trade['volume'],
                         'open_price': trade['openPrice'],
-                        'close_price': trade['closePrice'],
+                        'close_price': trade.get('closePrice', None),
                         'profit': trade['profit'],
                         'gain': trade['gain'],
                         'duration_in_minutes': trade['durationInMinutes'],
                         'open_time': get_aware_datetime(trade['openTime']),
-                        'close_time': get_aware_datetime(trade['closeTime']),
+                        'close_time': close_time,
+                        'active':  active
                     }
                 )
-
 
     @staticmethod
     async def authenticate(server, username, password, platform) -> str:
