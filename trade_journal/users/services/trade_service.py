@@ -4,6 +4,9 @@ from datetime import datetime
 from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
 from dateutil.parser import parse
 from django.utils import timezone
+from datetime import timedelta
+from collections import defaultdict
+
 
 class TradeService:
 
@@ -261,6 +264,15 @@ class TradeService:
                     'total_won': 0,
                     'total_lost': 0,
                     'average_holding_time_minutes': 0,
+                    'open_trades': 0,
+                    'total_trading_days': 0,
+                    'winning_days': 0,
+                    'losing_days': 0,
+                    'breakeven_days': 0,
+                    'logged_days': 0,
+                    'max_consecutive_winning_days': 0,
+                    'max_consecutive_losing_days': 0,
+                    'average_daily_pnl': 0.0
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -268,7 +280,12 @@ class TradeService:
             }
 
         # Overall statistics
-
+        open_trades = trades.filter(close_time__isnull=True).count()
+        daily_pnl = defaultdict(float)
+        current_streak = 0
+        max_winning_streak = 0
+        max_losing_streak = 0
+        last_day = None
         # Balance
         balance = sum(account.balance for account in accounts)
 
@@ -332,6 +349,22 @@ class TradeService:
             symbol_stats[symbol]['total_profit'] += trade.profit
             symbol_stats[symbol]['total_invested'] += trade.quantity
 
+        #     add
+            trade_day = trade.open_time.date()
+            if trade.close_time:
+                daily_pnl[trade_day] += trade.profit
+
+            if last_day and trade_day != last_day:
+                if daily_pnl[last_day] > 0:
+                    current_streak = current_streak + 1 if current_streak >= 0 else 1
+                    max_winning_streak = max(max_winning_streak, current_streak)
+                elif daily_pnl[last_day] < 0:
+                    current_streak = current_streak - 1 if current_streak <= 0 else -1
+                    max_losing_streak = max(max_losing_streak, abs(current_streak))
+                else:
+                    current_streak = 0
+                last_day = trade_day
+
         # Day performance
         day_performances = {}
         for trade in trades:
@@ -381,6 +414,13 @@ class TradeService:
             monthly_stats[month_key]['total_profit'] += trade.profit
             monthly_stats[month_key]['total_invested'] += trade.profit
 
+        total_trading_days = len(daily_pnl)
+        winning_days = sum(1 for pnl in daily_pnl.values() if pnl > 0)
+        losing_days = sum(1 for pnl in daily_pnl.values() if pnl < 0)
+        breakeven_days = sum(1 for pnl in daily_pnl.values() if pnl == 0)
+        logged_days = total_trading_days
+        average_daily_pnl = sum(daily_pnl.values()) / total_trading_days if total_trading_days > 0 else 0.0
+
         day_of_week_analysis = TradeService.calculate_day_of_week_distribution(trades)
         sessions_analysis = TradeService.calculate_session_distribution(trades)
 
@@ -401,6 +441,16 @@ class TradeService:
                 'total_won': total_won,
                 'total_lost': total_lost,
                 'average_holding_time_minutes': average_holding_time_minutes,
+                # new add
+                'open_trades': open_trades,
+                'total_trading_days': total_trading_days,
+                'winning_days': winning_days,
+                'losing_days': losing_days,
+                'breakeven_days': breakeven_days,
+                'logged_days': logged_days,
+                'max_consecutive_winning_days': max_winning_streak,
+                'max_consecutive_losing_days': max_losing_streak,
+                'average_daily_pnl': average_daily_pnl
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
