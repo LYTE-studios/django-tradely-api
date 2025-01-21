@@ -135,14 +135,14 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# from .my_secrets import database
+from .my_secrets import database
 
 DATABASES = {
-    # 'default': database,
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': database,
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
 }
 
 
