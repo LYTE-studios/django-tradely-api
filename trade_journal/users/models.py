@@ -44,6 +44,7 @@ class TradeAccount(models.Model):
     status = models.CharField(max_length=64, choices=AccountStatus.choices, default=AccountStatus.active)
     credentials  = models.CharField(max_length=256, null=True)
     currency = models.CharField(max_length=10, null=True, default='USD')
+    disabled = models.BooleanField(default=False)
 
     def to_dict(self):
         return {
@@ -57,6 +58,7 @@ class TradeAccount(models.Model):
             'status': self.status,
             'platform': self.platform,
             'currency': self.currency,
+            'disabled': self.disabled,
         }
 
     def __str__(self):
