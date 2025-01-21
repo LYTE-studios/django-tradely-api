@@ -33,6 +33,7 @@ class MetaTraderService:
             meta_trades = await self.get_meta_trades(account.account_id)
 
             await self.update_trades(meta_trades, account)
+
             # get current open trade
             meta_open_trades = await self.get_meta_open_trades(account.account_id)
 
@@ -96,57 +97,60 @@ class MetaTraderService:
             return []
 
     async def update_trades(self, meta_trades, account, active=False):
+            try:
+                from django.utils.dateparse import parse_datetime
+                from django.utils.timezone import is_aware, make_aware
 
-        from django.utils.dateparse import parse_datetime
-        from django.utils.timezone import is_aware, make_aware
+                def get_aware_datetime(date_str):
+                    ret = parse_datetime(date_str)
+                    if not is_aware(ret):
+                        ret = make_aware(ret)
+                    return ret
 
-        def get_aware_datetime(date_str):
-            ret = parse_datetime(date_str)
-            if not is_aware(ret):
-                ret = make_aware(ret)
-            return ret
+                for trade in meta_trades:
+                    if trade['type'] == 'DEAL_TYPE_BALANCE':
+                        await sync_to_async(ManualTrade.objects.update_or_create)(
+                            account=account,
+                            exchange_id=str(trade['_id']).split('+')[1],
+                            defaults={
+                                'profit': trade['profit'],
+                                'gain': 0,
+                                'open_time': get_aware_datetime(trade['openTime']),
+                                'close_time': get_aware_datetime(trade['openTime']),
+                                'is_top_up': True,
+                                'active': active
+                            }
+                        )
+                    else:
+                        trade_type = None
 
-        for trade in meta_trades:
-            if trade['type'] == 'DEAL_TYPE_BALANCE':
-                await sync_to_async(ManualTrade.objects.update_or_create)(
-                    account=account,
-                    exchange_id=str(trade['_id']).split('+')[1],
-                    defaults={
-                        'profit': trade['profit'],
-                        'gain': 0,
-                        'open_time': get_aware_datetime(trade['openTime']),
-                        'close_time': get_aware_datetime(trade['openTime']),
-                        'is_top_up': True,
-                        'active': active
-                    }
-                )
-            else:
-                trade_type = None
-
-                if trade['type'] == 'DEAL_TYPE_SELL':
-                    trade_type = TradeType.sell
-                elif trade['type'] == 'DEAL_TYPE_BUY':
-                    trade_type = TradeType.buy
-                close_time = trade.get('closeTime', None)
-                if close_time is not None:
-                    close_time = get_aware_datetime(trade['closeTime'])
-                await sync_to_async(ManualTrade.objects.update_or_create)(
-                    account=account,
-                    exchange_id=str(trade['_id']).split('+')[1],
-                    defaults={
-                        'trade_type': trade_type,
-                        'symbol': trade['symbol'],
-                        'quantity': trade['volume'],
-                        'open_price': trade['openPrice'],
-                        'close_price': trade.get('closePrice', None),
-                        'profit': trade['profit'],
-                        'gain': trade['gain'],
-                        'duration_in_minutes': trade['durationInMinutes'],
-                        'open_time': get_aware_datetime(trade['openTime']),
-                        'close_time': close_time,
-                        'active':  active
-                    }
-                )
+                        if trade['type'] == 'DEAL_TYPE_SELL':
+                            trade_type = TradeType.sell
+                        elif trade['type'] == 'DEAL_TYPE_BUY':
+                            trade_type = TradeType.buy
+                        close_time = trade.get('closeTime', None)
+                        if close_time is not None:
+                            close_time = get_aware_datetime(trade['closeTime'])
+                        await sync_to_async(ManualTrade.objects.update_or_create)(
+                            account=account,
+                            exchange_id=str(trade['_id']).split('+')[1],
+                            defaults={
+                                'trade_type': trade_type,
+                                'symbol': trade['symbol'],
+                                'quantity': trade['volume'],
+                                'open_price': trade['openPrice'],
+                                'close_price': trade.get('closePrice', None),
+                                'profit': trade['profit'],
+                                'gain': trade['gain'],
+                                'duration_in_minutes': trade['durationInMinutes'],
+                                'open_time': get_aware_datetime(trade['openTime']),
+                                'close_time': close_time,
+                                'active':  active
+                            }
+                        )
+            except Exception as e:
+                print(f"Error updating trades for account {account.id}: {str(e)}")
+                raise e
 
     @staticmethod
     async def authenticate(server, username, password, platform) -> str:
