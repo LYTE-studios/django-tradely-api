@@ -80,7 +80,7 @@ class ManualTrade(models.Model):
     symbol = models.CharField(max_length=10, null=True, default='')
 
     # Lot size
-    quantity = models.IntegerField(null=True, blank=True, default=1)
+    quantity = models.FloatField(null=True, blank=True, default=1)
 
     # Price at open time
     open_price = models.DecimalField(max_digits=25, decimal_places=5, null=True)
