@@ -286,6 +286,11 @@ class TradeService:
         max_winning_streak = 0
         max_losing_streak = 0
         last_day = None
+        total_commission = 0.0
+        total_swap = 0.0
+        total_fees = 0.0
+        breakeven_days = 0
+
         # Balance
         balance = sum(account.balance for account in accounts)
 
@@ -364,6 +369,15 @@ class TradeService:
                 else:
                     current_streak = 0
                 last_day = trade_day
+            # Calculate commissions, swaps, and fees
+            total_commission += trade.commission if hasattr(trade, 'commission') else 0.0
+            total_swap += trade.swap if hasattr(trade, 'swap') else 0.0
+            total_fees += trade.commission + trade.swap if hasattr(trade, 'commission') and hasattr(trade,
+                                                                                                    'swap') else 0.0
+
+            # Calculate breakeven trades
+            if -0.2 <= trade.profit <= 0.2:
+                breakeven_days += 1
 
         # Day performance
         day_performances = {}
@@ -417,7 +431,6 @@ class TradeService:
         total_trading_days = len(daily_pnl)
         winning_days = sum(1 for pnl in daily_pnl.values() if pnl > 0)
         losing_days = sum(1 for pnl in daily_pnl.values() if pnl < 0)
-        breakeven_days = sum(1 for pnl in daily_pnl.values() if pnl == 0)
         logged_days = total_trading_days
         average_daily_pnl = sum(daily_pnl.values()) / total_trading_days if total_trading_days > 0 else 0.0
 
@@ -450,7 +463,10 @@ class TradeService:
                 'logged_days': logged_days,
                 'max_consecutive_winning_days': max_winning_streak,
                 'max_consecutive_losing_days': max_losing_streak,
-                'average_daily_pnl': average_daily_pnl
+                'average_daily_pnl': average_daily_pnl,
+                'total_commission': total_commission,
+                'total_swap': total_swap,
+                'total_fees': total_fees
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
