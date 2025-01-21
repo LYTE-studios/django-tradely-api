@@ -36,15 +36,20 @@ class TradeService:
 
         trades = TradeService.get_all_trades(user, include_deposits=True)
 
+        trades = [trade for trade in trades if trade.open_time]
+
+        if not trades:
+            return {}
+
         if from_date and to_date:
             from django.utils.timezone import make_aware
 
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
         else:
-            last_trade = trades.last()
+            last_trade = trades[-1]
             if last_trade:
-                from_date = trades.last().close_time - timezone.timedelta(days=1)
+                from_date = (last_trade.close_time or last_trade.open_time) - timezone.timedelta(days=1)
             else: 
                 from_date = timezone.now() - timezone.timedelta(days=30)
             to_date = timezone.now()
@@ -55,9 +60,14 @@ class TradeService:
         balance_chart = {}
 
         def add_for_date(date, disallow_zero=False):
+            if not date:
+                return 
+
+            # Calculate the trades up until the given date
+            # If the trade has no close time, it is considered to be open and the open_time is used
             trades_up_to_point = [
                 trade for trade in trades 
-                if trade.close_time <= date
+                if (trade.close_time or trade.open_time) <= date
             ]
 
             # Calculate cumulative profit/loss
@@ -73,7 +83,7 @@ class TradeService:
         add_for_date(from_date, disallow_zero=True)
 
         for trade in trades:
-            add_for_date(trade.close_time)
+            add_for_date(trade.close_time or trade.open_time)
 
         add_for_date(to_date)
 
