@@ -96,6 +96,30 @@ class MetaTraderService:
             print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
 
+    async def get_metrics(self, account_id: str):
+        meta_stats = MetaStats(meta_api_key, {
+            'requestTimeout': 60000,
+            'retryOpts': {
+                'retries': 3,
+                'minDelayInMilliseconds': 1000,
+                'maxDelayInMilliseconds': 3000
+            }
+        })
+
+        try:
+            return await asyncio.wait_for(
+                meta_stats.get_metrics(
+                    account_id
+                ),
+                timeout=30
+            )
+        except asyncio.TimeoutError:
+            print(f"Timeout while fetching metrics for account {account_id}")
+            return []
+        except Exception as e:
+            print(f"Error fetching metrics for account {account_id}: {str(e)}")
+            return []
+
     async def update_trades(self, meta_trades, account, active=False):
             try:
                 from django.utils.dateparse import parse_datetime
@@ -145,7 +169,13 @@ class MetaTraderService:
                                 'duration_in_minutes': trade['durationInMinutes'],
                                 'open_time': get_aware_datetime(trade['openTime']),
                                 'close_time': close_time,
-                                'active':  active
+                                'active':  active,
+                                'volume': trade['volume'],
+                                'pips': trade['pips'],
+                                'risk_in_balance_percent': trade['riskInBalancePercent'],
+                                'risk_in_pips': trade['riskInPips'],
+                                'market_value': trade['marketValue']
+
                             }
                         )
             except Exception as e:

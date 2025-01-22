@@ -102,6 +102,19 @@ class ManualTrade(models.Model):
     # Checks if the trade is an account balance modifier
     is_top_up = models.BooleanField(default=False, blank=True)
 
+    # Trade volume
+    volume = models.FloatField(default=0, null=True, blank=True)
+    # Trade success
+    success = models.CharField(max_length=10, null=True, blank=True)
+    # The number of pips earned (positive) or lost (negative) in this trade.
+    pips = models.FloatField(default=0, null=True, blank=True)
+    # Trade risk in % of balance
+    risk_in_balance_percent = models.FloatField(default=0, null=True, blank=True)
+    # Trade risk in pips
+    risk_in_pips = models.FloatField(default=0, null=True, blank=True)
+    # Trade market value
+    market_value = models.FloatField(default=0, null=True, blank=True)
+
     # System
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -124,6 +137,11 @@ class ManualTrade(models.Model):
             'updated_at': self.updated_at,
             'duration_in_minutes': self.duration_in_minutes,
             'currency': self.account.currency,
+            'volume': self.volume,
+            'pips': self.pips,
+            'risk_in_balance_percent': self.risk_in_balance_percent,
+            'risk_in_pips': self.risk_in_pips,
+            'market_value': self.market_value,
             'active': self.active
         }
 
