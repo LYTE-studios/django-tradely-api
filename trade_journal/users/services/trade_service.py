@@ -272,7 +272,9 @@ class TradeService:
                     'logged_days': 0,
                     'max_consecutive_winning_days': 0,
                     'max_consecutive_losing_days': 0,
-                    'average_daily_pnl': 0.0
+                    'average_daily_pnl': 0.0,
+                    'largest_profitable_day': 0.0,
+                    'largest_losing_day': 0.0
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -335,6 +337,8 @@ class TradeService:
         if timed_trades != []:
             average_holding_time_minutes = sum(timed_trades) / len(timed_trades)
 
+        daily_profits = defaultdict(float)
+
         # Symbol performances
         symbol_stats = {}
         for trade in trades:
@@ -369,11 +373,11 @@ class TradeService:
                 else:
                     current_streak = 0
                 last_day = trade_day
+
+            trade_day = trade.open_time.date()
+            daily_profits[trade_day] += trade.profit
             # Calculate commissions, swaps, and fees
-            total_commission += trade.commission if hasattr(trade, 'commission') else 0.0
-            total_swap += trade.swap if hasattr(trade, 'swap') else 0.0
-            total_fees += trade.commission + trade.swap if hasattr(trade, 'commission') and hasattr(trade,
-                                                                                                    'swap') else 0.0
+
 
             # Calculate breakeven trades
             if -0.2 <= trade.profit <= 0.2:
@@ -436,6 +440,8 @@ class TradeService:
 
         day_of_week_analysis = TradeService.calculate_day_of_week_distribution(trades)
         sessions_analysis = TradeService.calculate_session_distribution(trades)
+        largest_profitable_day = max(daily_profits.values(), default=0.0)
+        largest_losing_day = min(daily_profits.values(), default=0.0)
 
         return {
             'overall_statistics': {
@@ -466,7 +472,9 @@ class TradeService:
                 'average_daily_pnl': average_daily_pnl,
                 'total_commission': total_commission,
                 'total_swap': total_swap,
-                'total_fees': total_fees
+                'total_fees': total_fees,
+                'largest_profitable_day': largest_profitable_day,
+                'largest_losing_day': largest_losing_day
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
