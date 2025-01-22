@@ -274,7 +274,12 @@ class TradeService:
                     'max_consecutive_losing_days': 0,
                     'average_daily_pnl': 0.0,
                     'largest_profitable_day': 0.0,
-                    'largest_losing_day': 0.0
+                    'largest_losing_day': 0.0,
+                    'trade_expectancy': 0,
+                    'max_drawdown': 0,
+                    'max_drawdown_percent': 0,
+                    'average_drawdown': 0,
+                    'average_drawdown_percent': 0,
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -443,6 +448,33 @@ class TradeService:
         largest_profitable_day = max(daily_profits.values(), default=0.0)
         largest_losing_day = min(daily_profits.values(), default=0.0)
 
+        # Calculate trade expectancy
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        loss_rate = (total_trades - winning_trades) / total_trades if total_trades > 0 else 0
+        trade_expectancy = win_rate * average_win - loss_rate * average_loss
+
+        # Calculate max drawdown and max drawdown percent
+        max_drawdown = 0
+        peak = trades[0].profit
+        for trade in trades:
+            if trade.profit > peak:
+                peak = trade.profit
+            drawdown = peak - trade.profit
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+        max_drawdown_percent = (max_drawdown / peak) * 100 if peak != 0 else 0
+
+        # Calculate average drawdown and average drawdown percent
+        drawdowns = []
+        peak = trades[0].profit
+        for trade in trades:
+            if trade.profit > peak:
+                peak = trade.profit
+            drawdown = peak - trade.profit
+            drawdowns.append(drawdown)
+        average_drawdown = sum(drawdowns) / len(drawdowns) if drawdowns else 0
+        average_drawdown_percent = (average_drawdown / peak) * 100 if peak != 0 else 0
+
         return {
             'overall_statistics': {
                 'long': long,
@@ -474,7 +506,12 @@ class TradeService:
                 'total_swap': total_swap,
                 'total_fees': total_fees,
                 'largest_profitable_day': largest_profitable_day,
-                'largest_losing_day': largest_losing_day
+                'largest_losing_day': largest_losing_day,
+                'trade_expectancy': trade_expectancy,
+                'max_drawdown': max_drawdown,
+                'max_drawdown_percent': max_drawdown_percent,
+                'average_drawdown': average_drawdown,
+                'average_drawdown_percent': average_drawdown_percent,
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
