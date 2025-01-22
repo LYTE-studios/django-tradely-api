@@ -246,6 +246,19 @@ class TradeService:
         """
         Calculates comprehensive statistics for given trades
         """
+
+        @staticmethod
+        def calculate_average_hold_time(trades):
+            total_duration = sum((trade.close_time - trade.open_time).total_seconds() for trade in trades if
+                                 trade.close_time and trade.open_time)
+            average_duration = total_duration / len(trades) if trades else 0
+            return timedelta(seconds=average_duration)
+
+        @staticmethod
+        def calculate_average_hold_time_by_type(trades, trade_type):
+            filtered_trades = [trade for trade in trades if trade.success == trade_type]
+            return calculate_average_hold_time(filtered_trades)
+
         if not trades:
             return {
                 'overall_statistics': {
@@ -280,6 +293,10 @@ class TradeService:
                     'max_drawdown_percent': 0,
                     'average_drawdown': 0,
                     'average_drawdown_percent': 0,
+                    'average_hold_time_all': timedelta(0),
+                    'average_hold_time_winning': timedelta(0),
+                    'average_hold_time_losing': timedelta(0),
+                    'average_hold_time_scratch': timedelta(0),
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -474,7 +491,11 @@ class TradeService:
             drawdowns.append(drawdown)
         average_drawdown = sum(drawdowns) / len(drawdowns) if drawdowns else 0
         average_drawdown_percent = (average_drawdown / peak) * 100 if peak != 0 else 0
-
+        # Calculate average hold times
+        average_hold_time_all = calculate_average_hold_time(trades)
+        average_hold_time_winning = calculate_average_hold_time_by_type(trades, 'win')
+        average_hold_time_losing = calculate_average_hold_time_by_type(trades, 'loss')
+        average_hold_time_scratch = calculate_average_hold_time_by_type(trades, 'scratch')
         return {
             'overall_statistics': {
                 'long': long,
@@ -512,6 +533,10 @@ class TradeService:
                 'max_drawdown_percent': max_drawdown_percent,
                 'average_drawdown': average_drawdown,
                 'average_drawdown_percent': average_drawdown_percent,
+                'average_hold_time_all': average_hold_time_all,
+                'average_hold_time_winning': average_hold_time_winning,
+                'average_hold_time_losing': average_hold_time_losing,
+                'average_hold_time_scratch': average_hold_time_scratch,
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
