@@ -125,17 +125,25 @@ class ManualTrade(models.Model):
             'active': self.active
         }
 
+    def is_breakeven(self):
+        """
+        Check if the trade is breakeven based on the MIN_GAIN threshold in settings.
+        # Check if gain is None first to avoid None comparison
+        if self.gain is None:
+            return False
+        """
+        min_gain_threshold = getattr(settings, 'TRADE_MIN_GAIN_THRESHOLD', 0.002)  # Default to 0.2%
+        return abs(float(self.gain)) < min_gain_threshold
+
     def should_count_for_statistics(self):
         """
         Determines if this trade should be counted in win/loss statistics
-        based on the gain threshold
+        based on the gain threshold.
         """
-        if self.gain is None:
-            return False
-        return abs(float(self.gain)) >= MIN_GAIN_THRESHOLD
+        return not self.is_breakeven() and (self.gain is not None)
 
     def __str__(self):
-        return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.price}"
+        return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.open_price}"
 
 # -- Note specific --
 

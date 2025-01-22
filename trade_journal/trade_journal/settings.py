@@ -20,7 +20,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
-
+"""
 from .my_secrets import sentry_dsn
 
 sentry_sdk.init(
@@ -35,7 +35,7 @@ sentry_sdk.init(
         "continuous_profiling_auto_start": True,
     },
 )
-
+"""
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -44,7 +44,7 @@ SECRET_KEY = 'django-insecure-x_sw%8brm-=kg4d)fbpup$d!j!=s6sg7bz!-olora(7)virst9
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-
+"""
 from .my_secrets import AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
 
 AWS_S3_REGION_NAME = 'eu-central-1'
@@ -61,7 +61,7 @@ STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 # s3 static settings
 STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
-
+"""
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -135,14 +135,13 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-from .my_secrets import database
+#from .my_secrets import database
 
 DATABASES = {
-    'default': database,
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
+    'default': {
+    'ENGINE': 'django.db.backends.sqlite3',
+    'NAME': BASE_DIR / 'db.sqlite3',
+     }
 }
 
 
@@ -205,6 +204,7 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = "users.CustomUser"
+MIN_GAIN_THRESHOLD = 0.02
 
 # Brevo API Configuration
 BREVO_API_KEY = 'brevo_api_key'

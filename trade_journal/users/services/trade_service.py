@@ -1,92 +1,34 @@
-from typing import Dict, List, Optional
+from typing import List, Dict
 from datetime import datetime
-from django.utils.timezone import make_aware
+
 from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
 from dateutil.parser import parse
 from django.utils import timezone
+from django.conf import settings
 
 class TradeService:
 
     @staticmethod
-    def get_all_trades(user, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None, include_deposits=False) -> List[ManualTrade]:
+    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None, include_deposits=False) -> List[ManualTrade]:
         """
-        Fetches all trades from different sources and normalizes them.
+        Fetches all trades from different sources and normalizes them
         """
         trades = ManualTrade.objects.filter(account__user=user)
 
-        # Get manual trades within the specified date range
+        # Get manual trades
         if from_date and to_date:
+            from django.utils.timezone import make_aware
+
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
+
             trades = trades.filter(close_time__range=(from_date, to_date))
 
         if not include_deposits:
             trades = trades.filter(is_top_up=False)
 
         return trades.order_by('-close_time').all()
-    
-    @staticmethod
-    def get_trade_statistics(user, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None) -> Dict:
-        """
-        Calculates trade statistics excluding trades with gains below threshold.
-        """
-        # Use existing method to get trades
-        trades = TradeService.get_all_trades(user, from_date, to_date)
-        
-        statistics = {
-            'total_trades': 0,
-            'winning_trades': 0,
-            'losing_trades': 0,
-            'trades_below_threshold': 0,
-            'win_rate': 0,
-            'total_profit': 0,
-            'average_win': 0,
-            'average_loss': 0
-        }
-        
-        # Lists to store wins and losses for averaging
-        winning_amounts = []
-        losing_amounts = []
-        
-        MIN_GAIN_THRESHOLD = 0.02  # Can be moved to settings or constants file
-        
-        for trade in trades:
-            # Skip trades that don't have gain calculated
-            if trade.gain is None:
-                continue
-                
-            gain = float(trade.gain)
-            statistics['total_profit'] += trade.profit
-            
-            # Check if trade should be counted based on threshold
-            if abs(gain) < MIN_GAIN_THRESHOLD:
-                statistics['trades_below_threshold'] += 1
-                continue
-                
-            statistics['total_trades'] += 1
-            
-            if gain > 0:
-                statistics['winning_trades'] += 1
-                winning_amounts.append(trade.profit)
-            else:
-                statistics['losing_trades'] += 1
-                losing_amounts.append(trade.profit)
-        
-        # Calculate win rate
-        if statistics['total_trades'] > 0:
-            statistics['win_rate'] = round(
-                (statistics['winning_trades'] / statistics['total_trades']) * 100, 
-                2
-            )
-        
-        # Calculate averages
-        if winning_amounts:
-            statistics['average_win'] = sum(winning_amounts) / len(winning_amounts)
-        
-        if losing_amounts:
-            statistics['average_loss'] = sum(losing_amounts) / len(losing_amounts)
-        
-        return statistics
+
     @staticmethod
     def get_account_balance_chart(user, from_date: timezone.datetime = None, to_date: timezone.datetime = None) -> Dict:
         """
@@ -95,15 +37,20 @@ class TradeService:
 
         trades = TradeService.get_all_trades(user, include_deposits=True)
 
+        trades = [trade for trade in trades if trade.open_time]
+
+        if not trades:
+            return {}
+
         if from_date and to_date:
             from django.utils.timezone import make_aware
 
             from_date = make_aware(from_date)
             to_date = make_aware(to_date)
         else:
-            last_trade = trades.last()
+            last_trade = trades[-1]
             if last_trade:
-                from_date = trades.last().close_time - timezone.timedelta(days=1)
+                from_date = (last_trade.close_time or last_trade.open_time) - timezone.timedelta(days=1)
             else: 
                 from_date = timezone.now() - timezone.timedelta(days=30)
             to_date = timezone.now()
@@ -114,9 +61,14 @@ class TradeService:
         balance_chart = {}
 
         def add_for_date(date, disallow_zero=False):
+            if not date:
+                return 
+
+            # Calculate the trades up until the given date
+            # If the trade has no close time, it is considered to be open and the open_time is used
             trades_up_to_point = [
                 trade for trade in trades 
-                if trade.close_time <= date
+                if (trade.close_time or trade.open_time) <= date
             ]
 
             # Calculate cumulative profit/loss
@@ -132,7 +84,7 @@ class TradeService:
         add_for_date(from_date, disallow_zero=True)
 
         for trade in trades:
-            add_for_date(trade.close_time)
+            add_for_date(trade.close_time or trade.open_time)
 
         add_for_date(to_date)
 
@@ -148,17 +100,20 @@ class TradeService:
 
     
     @staticmethod
-    def get_all_accounts(user, status=None) -> List[TradeAccount]:
+    def get_all_accounts(user, status=None, disabled=None) -> List[TradeAccount]:
 
         accounts = TradeAccount.objects.filter(user=user)
 
         if status:
             accounts = accounts.filter(status=status)
+
+        if disabled is not None:
+            accounts = accounts.filter(disabled=disabled)
         
         return accounts
     
     @staticmethod
-    def get_account_performance(user) -> Dict:
+    def get_account_performance(user, disabled=None) -> Dict:
         """
         Gets performance metrics for all accounts
         """
@@ -177,7 +132,7 @@ class TradeService:
             performance['total_trades'] += 1
 
         # Get account-specific performance
-        accounts = TradeService.get_all_accounts(user)
+        accounts = TradeService.get_all_accounts(user, disabled=disabled)
 
         for account in accounts:
             account_trades = [t for t in trades if t.account.id == account.id]
@@ -287,7 +242,7 @@ class TradeService:
     @staticmethod
     def calculate_statistics(trades: List[ManualTrade], accounts: List[TradeAccount]) -> Dict:
         """
-        Calculates comprehensive statistics for given trades
+        Calculates comprehensive statistics for given trades, handling breakeven trades separately
         """
         if not trades:
             return {
@@ -307,6 +262,8 @@ class TradeService:
                     'total_won': 0,
                     'total_lost': 0,
                     'average_holding_time_minutes': 0,
+                    'breakeven_trades': 0,
+                    'countable_trades': 0,
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -314,50 +271,39 @@ class TradeService:
             }
 
         # Overall statistics
-
-        # Balance
         balance = sum(account.balance for account in accounts)
-
         total_trades = len(trades)
-
+        
+        # Filter out breakeven trades for win/loss calculations
+        countable_trades = [t for t in trades if t.should_count_for_statistics()]
+        breakeven_trades = [t for t in trades if t.is_breakeven()]
+        
         total_profit = sum(trade.profit for trade in trades)
-
         total_invested = sum(trade.quantity for trade in trades)
 
-        winning_trades = len([t for t in trades if t.profit > 0])
+        # Only count non-breakeven trades for win/loss stats
+        winning_trades = len([t for t in countable_trades if t.profit > 0])
+        countable_trades_count = len(countable_trades)
 
         long = len([t for t in trades if t.trade_type == TradeType.buy])
         short = len([t for t in trades if t.trade_type == TradeType.sell])
 
-        total_won = sum(trade.profit for trade in trades if trade.profit > 0)
-        total_lost = abs(sum(trade.profit for trade in trades if trade.profit < 0))
-       
-        all_wins = [t.profit for t in trades if t.profit > 0]
-
-        best_win = 0
-        average_win = 0
-
-        if all_wins:
-            average_win = sum([t.profit for t in trades if t.profit > 0]) / len([t for t in trades if t.profit > 0])
-            best_win = max(all_wins)
+        # Calculate win/loss metrics only from countable trades
+        total_won = sum(trade.profit for trade in countable_trades if trade.profit > 0)
+        total_lost = abs(sum(trade.profit for trade in countable_trades if trade.profit < 0))
         
+        all_wins = [t.profit for t in countable_trades if t.profit > 0]
+        best_win = max(all_wins) if all_wins else 0
+        average_win = sum(all_wins) / len(all_wins) if all_wins else 0
 
-        all_losses = [t.profit for t in trades if t.profit < 0]
-        worst_loss = 0
-        average_loss = 0
-        if all_losses:
-            average_loss = sum([t.profit for t in trades if t.profit < 0]) / len([t for t in trades if t.profit < 0])
-            worst_loss = min(all_losses)
+        all_losses = [t.profit for t in countable_trades if t.profit < 0]
+        worst_loss = min(all_losses) if all_losses else 0
+        average_loss = sum(all_losses) / len(all_losses) if all_losses else 0
 
-        if total_lost == 0:
-            profit_factor = 0
-        else:
-            profit_factor = total_won / total_lost
+        profit_factor = total_won / total_lost if total_lost != 0 else 0
+        
         timed_trades = [t.duration_in_minutes for t in trades if t.duration_in_minutes > 0]
-        average_holding_time_minutes = 0
-
-        if timed_trades != []:
-            average_holding_time_minutes = sum(timed_trades) / len(timed_trades)
+        average_holding_time_minutes = sum(timed_trades) / len(timed_trades) if timed_trades else 0
 
         # Symbol performances
         symbol_stats = {}
@@ -371,12 +317,15 @@ class TradeService:
                     'symbol': symbol,
                     'total_trades': 0,
                     'total_profit': 0,
-                    'total_invested': 0
+                    'total_invested': 0,
+                    'breakeven_trades': 0
                 }
             
             symbol_stats[symbol]['total_trades'] += 1
             symbol_stats[symbol]['total_profit'] += trade.profit
             symbol_stats[symbol]['total_invested'] += trade.quantity
+            if trade.is_breakeven():
+                symbol_stats[symbol]['breakeven_trades'] += 1
 
         # Day performance
         day_performances = {}
@@ -438,7 +387,7 @@ class TradeService:
                 'total_trades': total_trades,
                 'total_profit': total_profit,
                 'total_invested': total_invested,
-                'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+                'win_rate': (winning_trades / countable_trades_count * 100) if countable_trades_count > 0 else 0,
                 'best_win': best_win,
                 'worst_loss': worst_loss,
                 'average_win': average_win,
@@ -447,6 +396,8 @@ class TradeService:
                 'total_won': total_won,
                 'total_lost': total_lost,
                 'average_holding_time_minutes': average_holding_time_minutes,
+                'breakeven_trades': len(breakeven_trades),
+                'countable_trades': countable_trades_count,
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
@@ -454,6 +405,7 @@ class TradeService:
             'day_performances': day_performances,
             'session_analysis': sessions_analysis,
         }
+
 
     @staticmethod
     def get_leaderboard():
