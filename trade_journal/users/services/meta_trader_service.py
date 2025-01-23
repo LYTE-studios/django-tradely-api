@@ -171,9 +171,9 @@ class MetaTraderService:
                                 'close_time': close_time,
                                 'active':  active,
                                 'volume': trade['volume'],
-                                'pips': trade['pips'],
-                                'risk_in_balance_percent': trade['riskInBalancePercent'],
-                                'risk_in_pips': trade['riskInPips'],
+                                'pips': trade.get('pips', None),
+                                'risk_in_balance_percent': trade.get('riskInBalancePercent', None),
+                                'risk_in_pips': trade.get('riskInPips', None),
                                 'market_value': trade['marketValue']
 
                             }
