@@ -54,8 +54,8 @@ class AccountService:
         accounts = await sync_to_async(TradeAccount.objects.filter)(user=user)
 
         async for account in accounts:
-            # if not force_refresh and not needs_refresh(account):
-            #     continue
+            if not force_refresh and not needs_refresh(account):
+                continue
 
             await AccountService.refresh_account(account)
 

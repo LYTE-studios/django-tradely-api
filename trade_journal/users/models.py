@@ -6,10 +6,22 @@ from .storage_backend import MediaStorage
 
 MIN_GAIN_THRESHOLD = 0.02
 
+
 class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    currency = models.CharField(max_length=10, null=True, default='USD')
+
+
+class ExchangeRate(models.Model):
+    currency_in = models.CharField(max_length=10)
+    currency_out = models.CharField(max_length=10)
+    exchange_rate = models.DecimalField(max_digits=20, decimal_places=10)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.currency_in} to {self.currency_out} at {self.exchange_rate}"
 
 
 # -- Trade specific --
@@ -46,8 +58,6 @@ class TradeAccount(models.Model):
     credentials = models.CharField(max_length=256, null=True)
     currency = models.CharField(max_length=10, null=True, default='USD')
     disabled = models.BooleanField(default=False)
-    currency_in = models.CharField(max_length=3, null=True, default='USD')
-    currency_out = models.CharField(max_length=3, null=True, default='USD')
 
     def to_dict(self):
         return {
@@ -122,7 +132,6 @@ class ManualTrade(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     active = models.BooleanField(default=False)
 
-
     def to_dict(self):
         return {
             'id': self.id,
@@ -166,6 +175,7 @@ class ManualTrade(models.Model):
 
     def __str__(self):
         return f"{self.trade_type} {self.quantity} {self.symbol} at ${self.open_price}"
+
 
 # -- Note specific --
 

@@ -5,7 +5,8 @@ from typing import List, Dict
 from requests import get
 from django.utils import timezone
 from decimal import Decimal
-from ..models import ManualTrade, CustomUser, TradeAccount, TradeType
+from ..models import ManualTrade, CustomUser, TradeAccount, TradeType, ExchangeRate
+from django.conf import settings
 
 
 class TradeService:
@@ -13,34 +14,40 @@ class TradeService:
     @staticmethod
     def get_exchange(user):
         account = TradeAccount.objects.filter(user=user).first()
-        try:
-            if account.currency_in is not None and account.currency_out is not None:
-                currency_in = account.currency_in
-                currency_out = account.currency_out
-                try:
-                    headers = {
-                        "authorization": "Basic bG9kZXN0YXI6cHVnc25heA=="
-                    }
-                    # check if the values passed are valid
-                    # and construct the url like so:
-                    currency_page = 'https://www.xe.com/api/protected/statistics/?from={}&to={}'.format(currency_in, currency_out)
-
-                    response = get(currency_page, headers=headers)
-                    if response.status_code == 200:
-                        currency_data = response.json()
-
-                        average = currency_data['last1Days']['average']
-                        return average
-                    else:
-                        return 1
-                except Exception as e:
-                    print(f"Error fetching exchange rate: {str(e)}")
-                    return 1
-            else:
-                return 1
-        except Exception as e:
-            print(f"Error fetch account info: {str(e)}")
+        if not account or not account.currency or not user.currency:
             return 1
+
+        currency_in = user.currency
+        currency_out = account.currency
+
+        # Check if the exchange rate is cached
+        exchange_rate = ExchangeRate.objects.filter(currency_in=currency_in, currency_out=currency_out).first()
+        if exchange_rate and timezone.now() - exchange_rate.updated_at < timedelta(minutes=settings.EXCHANGE_RATE_CACHE_DURATION):
+            return exchange_rate.exchange_rate
+
+        # Fetch new exchange rate
+        try:
+            headers = {
+                "authorization": "Basic bG9kZXN0YXI6cHVnc25heA=="
+            }
+            currency_page = f'https://www.xe.com/api/protected/statistics/?from={currency_in}&to={currency_out}'
+            response = get(currency_page, headers=headers)
+            if response.status_code == 200:
+                currency_data = response.json()
+                average = currency_data['last1Days']['average']
+
+                # Update or create the exchange rate in the database
+                ExchangeRate.objects.update_or_create(
+                    currency_in=currency_in,
+                    currency_out=currency_out,
+                    defaults={'exchange_rate': average, 'updated_at': timezone.now()}
+                )
+                return average
+        except Exception as e:
+            print(f"Error fetching exchange rate: {str(e)}")
+            return 1
+
+        return 1
 
 
     @staticmethod
