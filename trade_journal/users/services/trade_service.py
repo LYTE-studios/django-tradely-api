@@ -4,6 +4,9 @@ from datetime import datetime
 from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
 from dateutil.parser import parse
 from django.utils import timezone
+from datetime import timedelta
+from collections import defaultdict
+
 from django.conf import settings
 
 class TradeService:
@@ -244,6 +247,19 @@ class TradeService:
         """
         Calculates comprehensive statistics for given trades, handling breakeven trades separately
         """
+
+        @staticmethod
+        def calculate_average_hold_time(trades):
+            total_duration = sum((trade.close_time - trade.open_time).total_seconds() for trade in trades if
+                                 trade.close_time and trade.open_time)
+            average_duration = total_duration / len(trades) if trades else 0
+            return timedelta(seconds=average_duration)
+
+        @staticmethod
+        def calculate_average_hold_time_by_type(trades, trade_type):
+            filtered_trades = [trade for trade in trades if trade.success == trade_type]
+            return calculate_average_hold_time(filtered_trades)
+
         if not trades:
             return {
                 'overall_statistics': {
@@ -262,6 +278,26 @@ class TradeService:
                     'total_won': 0,
                     'total_lost': 0,
                     'average_holding_time_minutes': 0,
+                    'open_trades': 0,
+                    'total_trading_days': 0,
+                    'winning_days': 0,
+                    'losing_days': 0,
+                    'breakeven_days': 0,
+                    'logged_days': 0,
+                    'max_consecutive_winning_days': 0,
+                    'max_consecutive_losing_days': 0,
+                    'average_daily_pnl': 0.0,
+                    'largest_profitable_day': 0.0,
+                    'largest_losing_day': 0.0,
+                    'trade_expectancy': 0,
+                    'max_drawdown': 0,
+                    'max_drawdown_percent': 0,
+                    'average_drawdown': 0,
+                    'average_drawdown_percent': 0,
+                    'average_hold_time_all': timedelta(0),
+                    'average_hold_time_winning': timedelta(0),
+                    'average_hold_time_losing': timedelta(0),
+                    'average_hold_time_scratch': timedelta(0),
                     'breakeven_trades': 0,
                     'countable_trades': 0,
                 },
@@ -271,6 +307,18 @@ class TradeService:
             }
 
         # Overall statistics
+        open_trades = trades.filter(close_time__isnull=True).count()
+        daily_pnl = defaultdict(float)
+        current_streak = 0
+        max_winning_streak = 0
+        max_losing_streak = 0
+        last_day = None
+        total_commission = 0.0
+        total_swap = 0.0
+        total_fees = 0.0
+        breakeven_days = 0
+
+        # Balance
         balance = sum(account.balance for account in accounts)
         total_trades = len(trades)
         
@@ -305,6 +353,8 @@ class TradeService:
         timed_trades = [t.duration_in_minutes for t in trades if t.duration_in_minutes > 0]
         average_holding_time_minutes = sum(timed_trades) / len(timed_trades) if timed_trades else 0
 
+        daily_profits = defaultdict(float)
+
         # Symbol performances
         symbol_stats = {}
         for trade in trades:
@@ -326,6 +376,31 @@ class TradeService:
             symbol_stats[symbol]['total_invested'] += trade.quantity
             if trade.is_breakeven():
                 symbol_stats[symbol]['breakeven_trades'] += 1
+
+        #     add
+            trade_day = trade.open_time.date()
+            if trade.close_time:
+                daily_pnl[trade_day] += trade.profit
+
+            if last_day and trade_day != last_day:
+                if daily_pnl[last_day] > 0:
+                    current_streak = current_streak + 1 if current_streak >= 0 else 1
+                    max_winning_streak = max(max_winning_streak, current_streak)
+                elif daily_pnl[last_day] < 0:
+                    current_streak = current_streak - 1 if current_streak <= 0 else -1
+                    max_losing_streak = max(max_losing_streak, abs(current_streak))
+                else:
+                    current_streak = 0
+                last_day = trade_day
+
+            trade_day = trade.open_time.date()
+            daily_profits[trade_day] += trade.profit
+            # Calculate commissions, swaps, and fees
+
+
+            # Calculate breakeven trades
+            if -0.2 <= trade.profit <= 0.2:
+                breakeven_days += 1
 
         # Day performance
         day_performances = {}
@@ -376,9 +451,48 @@ class TradeService:
             monthly_stats[month_key]['total_profit'] += trade.profit
             monthly_stats[month_key]['total_invested'] += trade.profit
 
+        total_trading_days = len(daily_pnl)
+        winning_days = sum(1 for pnl in daily_pnl.values() if pnl > 0)
+        losing_days = sum(1 for pnl in daily_pnl.values() if pnl < 0)
+        logged_days = total_trading_days
+        average_daily_pnl = sum(daily_pnl.values()) / total_trading_days if total_trading_days > 0 else 0.0
+
         day_of_week_analysis = TradeService.calculate_day_of_week_distribution(trades)
         sessions_analysis = TradeService.calculate_session_distribution(trades)
+        largest_profitable_day = max(daily_profits.values(), default=0.0)
+        largest_losing_day = min(daily_profits.values(), default=0.0)
 
+        # Calculate trade expectancy
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        loss_rate = (total_trades - winning_trades) / total_trades if total_trades > 0 else 0
+        trade_expectancy = win_rate * average_win - loss_rate * average_loss
+
+        # Calculate max drawdown and max drawdown percent
+        max_drawdown = 0
+        peak = trades[0].profit
+        for trade in trades:
+            if trade.profit > peak:
+                peak = trade.profit
+            drawdown = peak - trade.profit
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+        max_drawdown_percent = (max_drawdown / peak) * 100 if peak != 0 else 0
+
+        # Calculate average drawdown and average drawdown percent
+        drawdowns = []
+        peak = trades[0].profit
+        for trade in trades:
+            if trade.profit > peak:
+                peak = trade.profit
+            drawdown = peak - trade.profit
+            drawdowns.append(drawdown)
+        average_drawdown = sum(drawdowns) / len(drawdowns) if drawdowns else 0
+        average_drawdown_percent = (average_drawdown / peak) * 100 if peak != 0 else 0
+        # Calculate average hold times
+        average_hold_time_all = calculate_average_hold_time(trades)
+        average_hold_time_winning = calculate_average_hold_time_by_type(trades, 'win')
+        average_hold_time_losing = calculate_average_hold_time_by_type(trades, 'loss')
+        average_hold_time_scratch = calculate_average_hold_time_by_type(trades, 'scratch')
         return {
             'overall_statistics': {
                 'long': long,
@@ -396,6 +510,30 @@ class TradeService:
                 'total_won': total_won,
                 'total_lost': total_lost,
                 'average_holding_time_minutes': average_holding_time_minutes,
+                # new add
+                'open_trades': open_trades,
+                'total_trading_days': total_trading_days,
+                'winning_days': winning_days,
+                'losing_days': losing_days,
+                'breakeven_days': breakeven_days,
+                'logged_days': logged_days,
+                'max_consecutive_winning_days': max_winning_streak,
+                'max_consecutive_losing_days': max_losing_streak,
+                'average_daily_pnl': average_daily_pnl,
+                'total_commission': total_commission,
+                'total_swap': total_swap,
+                'total_fees': total_fees,
+                'largest_profitable_day': largest_profitable_day,
+                'largest_losing_day': largest_losing_day,
+                'trade_expectancy': trade_expectancy,
+                'max_drawdown': max_drawdown,
+                'max_drawdown_percent': max_drawdown_percent,
+                'average_drawdown': average_drawdown,
+                'average_drawdown_percent': average_drawdown_percent,
+                'average_hold_time_all': average_hold_time_all,
+                'average_hold_time_winning': average_hold_time_winning,
+                'average_hold_time_losing': average_hold_time_losing,
+                'average_hold_time_scratch': average_hold_time_scratch,
                 'breakeven_trades': len(breakeven_trades),
                 'countable_trades': countable_trades_count,
             },
