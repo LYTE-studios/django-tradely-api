@@ -1,3 +1,4 @@
+from xmlrpc.client import Boolean
 
 from django.utils import timezone
 from django.contrib.auth import authenticate
@@ -244,7 +245,8 @@ class AccountsSummaryView(APIView):
 
     def get(self, request):
         try:
-            accounts = TradeService.get_all_accounts(request.user)
+            disabled = request.query_params.get('disabled', None)
+            accounts = TradeService.get_all_accounts(request.user, disabled=disabled)
             return Response({'accounts': [account.to_dict() for account in accounts]}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
@@ -257,7 +259,8 @@ class AccountPerformanceView(APIView):
 
     def get(self, request):
         try:
-            performance = TradeService.get_account_performance(request.user)
+            disabled = request.query_params.get('disabled', None)
+            performance = TradeService.get_account_performance(request.user, disabled=disabled)
             return Response(performance, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
@@ -271,6 +274,7 @@ class ComprehensiveTradeStatisticsView(APIView):
     def get(self, request):
         from_date = request.query_params.get('from')
         until_date = request.query_params.get('to')
+        disabled = request.query_params.get('disabled', None)
 
         parsed_from_date = None
         parsed_until_date = None
@@ -286,7 +290,7 @@ class ComprehensiveTradeStatisticsView(APIView):
             to_date=parsed_until_date
         )
         
-        accounts = TradeService.get_all_accounts(request.user)
+        accounts = TradeService.get_all_accounts(request.user, disabled=disabled)
 
         statistics = TradeService.calculate_statistics(trades, accounts)
 
@@ -389,3 +393,32 @@ class UploadFileView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({"url": uploaded_file.file.url}, status=status.HTTP_201_CREATED)
+
+class ToggleUserAccountStatus(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, account_id=None):
+        try:
+            if account_id is None:
+                return Response({"error": "account ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+            # Retrieve the boolean parameter 'mode'
+            disable = request.data.get('disable', False)
+
+            # Ensure the mode is a boolean
+            if not isinstance(disable, bool):
+                return Response({"error": "mode must be a boolean (true or false)"}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = request.user
+            trade_account  = TradeAccount.objects.get(id=account_id, user=user)
+
+            trade_account.disabled = disable
+            response = "account enabled" if not disable else "account disabled"
+            trade_account.save()
+
+            return Response({"response": response}, status=status.HTTP_200_OK)
+
+        except TradeAccount.DoesNotExist:
+            return Response({"error": "trade account not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

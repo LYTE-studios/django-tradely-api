@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
-from .models import TradeAccount, ManualTrade, TradeNote
+from .models import TradeAccount, ManualTrade, TradeNote, CustomUser
 from .services import TradeService
 
 User = get_user_model()
@@ -124,6 +124,7 @@ class UserRegistrationViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.count(), 1)
 
+
 class TradeStatisticsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', email='test@test.com', password='testpass123')
@@ -139,3 +140,57 @@ class TradeStatisticsTest(TestCase):
         self.assertEqual(stats['winning_trades'], 1)
         self.assertEqual(stats['losing_trades'], 1)
         self.assertEqual(stats['trades_below_threshold'], 1)
+        
+        
+class ToggleUserAccountStatusTests(APITestCase):
+    def setUp(self):
+        # Create a test user
+        self.user = CustomUser.objects.create_user(username="testuser", password="testpassword")
+        self.client = APIClient()
+
+        # Create a trade account for the user
+        self.trade_account = TradeAccount.objects.create(user=self.user, disabled=False)
+
+        # Authenticate the user
+        self.client.force_authenticate(user=self.user)
+
+        # Base URL for the API with account_id as a parameter
+        self.url = f"/api/users/toggle-account-mode/{self.trade_account.id}/"
+
+    def test_disable_account(self):
+        # Send a PATCH request with disable=True (account disabled)
+        response = self.client.patch(self.url, {"disable": True}, format="json")
+
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["response"], "account disabled")
+        self.trade_account.refresh_from_db()
+        self.assertTrue(self.trade_account.disabled)
+
+    def test_enable_account(self):
+        # Disable the account first
+        self.trade_account.disabled = True
+        self.trade_account.save()
+
+        response = self.client.patch(self.url, {"disable": False}, format="json")
+
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["response"], "account enabled")
+        self.trade_account.refresh_from_db()
+        self.assertFalse(self.trade_account.disabled)
+
+    def test_invalid_disable_value(self):
+        response = self.client.patch(self.url, {"disable": "invalid"}, format="json")
+
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "mode must be a boolean (true or false)")
+
+    def test_account_does_not_exist(self):
+        url = "/api/users/toggle-account-mode/99999/"
+        response = self.client.patch(url, {"disable": True}, format="json")
+
+        # Assertions
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("error", response.data)
