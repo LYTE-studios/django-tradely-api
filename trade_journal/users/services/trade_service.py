@@ -7,6 +7,7 @@ from django.utils import timezone
 from datetime import timedelta
 from collections import defaultdict
 
+from django.conf import settings
 
 class TradeService:
 
@@ -244,7 +245,7 @@ class TradeService:
     @staticmethod
     def calculate_statistics(trades: List[ManualTrade], accounts: List[TradeAccount]) -> Dict:
         """
-        Calculates comprehensive statistics for given trades
+        Calculates comprehensive statistics for given trades, handling breakeven trades separately
         """
 
         @staticmethod
@@ -297,6 +298,8 @@ class TradeService:
                     'average_hold_time_winning': timedelta(0),
                     'average_hold_time_losing': timedelta(0),
                     'average_hold_time_scratch': timedelta(0),
+                    'breakeven_trades': 0,
+                    'countable_trades': 0,
                 },
                 'day_performances': {},
                 'symbol_performances': [],
@@ -317,47 +320,38 @@ class TradeService:
 
         # Balance
         balance = sum(account.balance for account in accounts)
-
         total_trades = len(trades)
-
+        
+        # Filter out breakeven trades for win/loss calculations
+        countable_trades = [t for t in trades if t.should_count_for_statistics()]
+        breakeven_trades = [t for t in trades if t.is_breakeven()]
+        
         total_profit = sum(trade.profit for trade in trades)
-
         total_invested = sum(trade.quantity for trade in trades)
 
-        winning_trades = len([t for t in trades if t.profit > 0])
+        # Only count non-breakeven trades for win/loss stats
+        winning_trades = len([t for t in countable_trades if t.profit > 0])
+        countable_trades_count = len(countable_trades)
 
         long = len([t for t in trades if t.trade_type == TradeType.buy])
         short = len([t for t in trades if t.trade_type == TradeType.sell])
 
-        total_won = sum(trade.profit for trade in trades if trade.profit > 0)
-        total_lost = abs(sum(trade.profit for trade in trades if trade.profit < 0))
-       
-        all_wins = [t.profit for t in trades if t.profit > 0]
-
-        best_win = 0
-        average_win = 0
-
-        if all_wins:
-            average_win = sum([t.profit for t in trades if t.profit > 0]) / len([t for t in trades if t.profit > 0])
-            best_win = max(all_wins)
+        # Calculate win/loss metrics only from countable trades
+        total_won = sum(trade.profit for trade in countable_trades if trade.profit > 0)
+        total_lost = abs(sum(trade.profit for trade in countable_trades if trade.profit < 0))
         
+        all_wins = [t.profit for t in countable_trades if t.profit > 0]
+        best_win = max(all_wins) if all_wins else 0
+        average_win = sum(all_wins) / len(all_wins) if all_wins else 0
 
-        all_losses = [t.profit for t in trades if t.profit < 0]
-        worst_loss = 0
-        average_loss = 0
-        if all_losses:
-            average_loss = sum([t.profit for t in trades if t.profit < 0]) / len([t for t in trades if t.profit < 0])
-            worst_loss = min(all_losses)
+        all_losses = [t.profit for t in countable_trades if t.profit < 0]
+        worst_loss = min(all_losses) if all_losses else 0
+        average_loss = sum(all_losses) / len(all_losses) if all_losses else 0
 
-        if total_lost == 0:
-            profit_factor = 0
-        else:
-            profit_factor = total_won / total_lost
+        profit_factor = total_won / total_lost if total_lost != 0 else 0
+        
         timed_trades = [t.duration_in_minutes for t in trades if t.duration_in_minutes > 0]
-        average_holding_time_minutes = 0
-
-        if timed_trades != []:
-            average_holding_time_minutes = sum(timed_trades) / len(timed_trades)
+        average_holding_time_minutes = sum(timed_trades) / len(timed_trades) if timed_trades else 0
 
         daily_profits = defaultdict(float)
 
@@ -373,12 +367,15 @@ class TradeService:
                     'symbol': symbol,
                     'total_trades': 0,
                     'total_profit': 0,
-                    'total_invested': 0
+                    'total_invested': 0,
+                    'breakeven_trades': 0
                 }
             
             symbol_stats[symbol]['total_trades'] += 1
             symbol_stats[symbol]['total_profit'] += trade.profit
             symbol_stats[symbol]['total_invested'] += trade.quantity
+            if trade.is_breakeven():
+                symbol_stats[symbol]['breakeven_trades'] += 1
 
         #     add
             trade_day = trade.open_time.date()
@@ -504,7 +501,7 @@ class TradeService:
                 'total_trades': total_trades,
                 'total_profit': total_profit,
                 'total_invested': total_invested,
-                'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+                'win_rate': (winning_trades / countable_trades_count * 100) if countable_trades_count > 0 else 0,
                 'best_win': best_win,
                 'worst_loss': worst_loss,
                 'average_win': average_win,
@@ -537,6 +534,8 @@ class TradeService:
                 'average_hold_time_winning': average_hold_time_winning,
                 'average_hold_time_losing': average_hold_time_losing,
                 'average_hold_time_scratch': average_hold_time_scratch,
+                'breakeven_trades': len(breakeven_trades),
+                'countable_trades': countable_trades_count,
             },
             'symbol_performances': list(symbol_stats.values()),
             'monthly_summary': list(monthly_stats.values()),
@@ -544,6 +543,7 @@ class TradeService:
             'day_performances': day_performances,
             'session_analysis': sessions_analysis,
         }
+
 
     @staticmethod
     def get_leaderboard():

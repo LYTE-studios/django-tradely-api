@@ -20,7 +20,7 @@ class TradeServiceTests(TestCase):
         )
         self.trade_account = TradeAccount.objects.create(
             user=self.user,
-            name='Test Account',
+            #name='Test Account',
             balance=Decimal('1000.00')
         )
 
@@ -124,6 +124,24 @@ class UserRegistrationViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.count(), 1)
 
+
+class TradeStatisticsTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', email='test@test.com', password='testpass123')
+        self.account = TradeAccount.objects.create(user=self.user, balance=Decimal('1000.00'))
+        self.trade1 = ManualTrade.objects.create(account=self.account, gain=Decimal('0.03'), profit=Decimal('30'))  # Above threshold
+        self.trade2 = ManualTrade.objects.create(account=self.account, gain=Decimal('0.01'), profit=Decimal('10'))  # Below threshold
+        self.trade3 = ManualTrade.objects.create(account=self.account, gain=Decimal('-0.03'), profit=Decimal('-30'))  # Loss above threshold
+
+    def test_trade_statistics_threshold(self):
+        stats = TradeService.get_trade_statistics(self.user)  # Pass user to get statistics
+        
+        self.assertEqual(stats['total_trades'], 2)  # Only counts trades above threshold
+        self.assertEqual(stats['winning_trades'], 1)
+        self.assertEqual(stats['losing_trades'], 1)
+        self.assertEqual(stats['trades_below_threshold'], 1)
+        
+        
 class ToggleUserAccountStatusTests(APITestCase):
     def setUp(self):
         # Create a test user
