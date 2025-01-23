@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.utils.translation import gettext_lazy as _
+
 from .storage_backend import MediaStorage
 
 MIN_GAIN_THRESHOLD = 0.02
@@ -43,9 +43,11 @@ class TradeAccount(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     platform = models.CharField(max_length=64, choices=Platform.choices, default=Platform.manual)
     status = models.CharField(max_length=64, choices=AccountStatus.choices, default=AccountStatus.active)
-    credentials  = models.CharField(max_length=256, null=True)
+    credentials = models.CharField(max_length=256, null=True)
     currency = models.CharField(max_length=10, null=True, default='USD')
     disabled = models.BooleanField(default=False)
+    currency_in = models.CharField(max_length=3, null=True, default='USD')
+    currency_out = models.CharField(max_length=3, null=True, default='USD')
 
     def to_dict(self):
         return {

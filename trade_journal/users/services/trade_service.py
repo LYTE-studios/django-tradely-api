@@ -1,18 +1,51 @@
-from typing import List, Dict
-from datetime import datetime
-
-from ..models import AccountStatus, ManualTrade, CustomUser, TradeAccount, TradeType
-from dateutil.parser import parse
-from django.utils import timezone
-from datetime import timedelta
 from collections import defaultdict
+from datetime import datetime
+from datetime import timedelta
+from typing import List, Dict
+from requests import get
+from django.utils import timezone
+from decimal import Decimal
+from ..models import ManualTrade, CustomUser, TradeAccount, TradeType
 
-from django.conf import settings
 
 class TradeService:
 
     @staticmethod
-    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None, include_deposits=False) -> List[ManualTrade]:
+    def get_exchange(user):
+        account = TradeAccount.objects.filter(user=user).first()
+        try:
+            if account.currency_in is not None and account.currency_out is not None:
+                currency_in = account.currency_in
+                currency_out = account.currency_out
+                try:
+                    headers = {
+                        "authorization": "Basic bG9kZXN0YXI6cHVnc25heA=="
+                    }
+                    # check if the values passed are valid
+                    # and construct the url like so:
+                    currency_page = 'https://www.xe.com/api/protected/statistics/?from={}&to={}'.format(currency_in, currency_out)
+
+                    response = get(currency_page, headers=headers)
+                    if response.status_code == 200:
+                        currency_data = response.json()
+
+                        average = currency_data['last1Days']['average']
+                        return average
+                    else:
+                        return 1
+                except Exception as e:
+                    print(f"Error fetching exchange rate: {str(e)}")
+                    return 1
+            else:
+                return 1
+        except Exception as e:
+            print(f"Error fetch account info: {str(e)}")
+            return 1
+
+
+    @staticmethod
+    def get_all_trades(user, from_date: datetime = None, to_date: datetime = None, include_deposits=False) -> List[
+        ManualTrade]:
         """
         Fetches all trades from different sources and normalizes them
         """
@@ -54,29 +87,29 @@ class TradeService:
             last_trade = trades[-1]
             if last_trade:
                 from_date = (last_trade.close_time or last_trade.open_time) - timezone.timedelta(days=1)
-            else: 
+            else:
                 from_date = timezone.now() - timezone.timedelta(days=30)
             to_date = timezone.now()
 
         if not trades:
-            return {}   
+            return {}
 
         balance_chart = {}
 
         def add_for_date(date, disallow_zero=False):
             if not date:
-                return 
+                return
 
-            # Calculate the trades up until the given date
+                # Calculate the trades up until the given date
             # If the trade has no close time, it is considered to be open and the open_time is used
             trades_up_to_point = [
-                trade for trade in trades 
+                trade for trade in trades
                 if (trade.close_time or trade.open_time) <= date
             ]
 
             # Calculate cumulative profit/loss
             cumulative_profit = sum(
-               trade.profit for trade in trades_up_to_point
+                trade.profit for trade in trades_up_to_point
             )
 
             if cumulative_profit == 0 and disallow_zero:
@@ -94,14 +127,13 @@ class TradeService:
         inter_chart = balance_chart.copy()
 
         balance_chart = {}
-        
-        for(key, value) in inter_chart.items():
+
+        for (key, value) in inter_chart.items():
             if key >= from_date.strftime('%Y-%m-%d %H:%M:%S') and key <= to_date.strftime('%Y-%m-%d %H:%M:%S'):
                 balance_chart[key] = value
-                    
+
         return balance_chart
 
-    
     @staticmethod
     def get_all_accounts(user, status=None, disabled=None) -> List[TradeAccount]:
 
@@ -112,26 +144,27 @@ class TradeService:
 
         if disabled is not None:
             accounts = accounts.filter(disabled=disabled)
-        
+
         return accounts
-    
+
     @staticmethod
     def get_account_performance(user, disabled=None) -> Dict:
+        exchange_rate = Decimal(TradeService.get_exchange(user))
         """
         Gets performance metrics for all accounts
         """
         performance = {
-            'total_profit': 0,
+            'total_profit': Decimal(0),
             'total_trades': 0,
             'accounts_performance': [],
         }
 
         # Get all trades
         trades = TradeService.get_all_trades(user)
-        
+
         # Calculate overall metrics
         for trade in trades:
-            performance['total_profit'] += trade.profit
+            performance['total_profit'] += Decimal(trade.profit) * exchange_rate
             performance['total_trades'] += 1
 
         # Get account-specific performance
@@ -143,16 +176,15 @@ class TradeService:
             account_performance = {
                 'account_id': account.id,
                 'account_name': account.account_name,
-                'current_balance': account.balance,
+                'current_balance': Decimal(account.balance) * exchange_rate,
                 'total_trades': len(account_trades),
-                'total_profit': sum(t.profit for t in account_trades),
+                'total_profit': sum(Decimal(t.profit) for t in account_trades) * exchange_rate,
                 'last_updated': account.updated_at,
             }
 
             performance['accounts_performance'].append(account_performance)
 
         return performance
-    
     @staticmethod
     def calculate_session_distribution(trades: List[Dict]) -> Dict[str, float]:
         """
@@ -321,11 +353,11 @@ class TradeService:
         # Balance
         balance = sum(account.balance for account in accounts)
         total_trades = len(trades)
-        
+
         # Filter out breakeven trades for win/loss calculations
         countable_trades = [t for t in trades if t.should_count_for_statistics()]
         breakeven_trades = [t for t in trades if t.is_breakeven()]
-        
+
         total_profit = sum(trade.profit for trade in trades)
         total_invested = sum(trade.quantity for trade in trades)
 
@@ -339,7 +371,7 @@ class TradeService:
         # Calculate win/loss metrics only from countable trades
         total_won = sum(trade.profit for trade in countable_trades if trade.profit > 0)
         total_lost = abs(sum(trade.profit for trade in countable_trades if trade.profit < 0))
-        
+
         all_wins = [t.profit for t in countable_trades if t.profit > 0]
         best_win = max(all_wins) if all_wins else 0
         average_win = sum(all_wins) / len(all_wins) if all_wins else 0
@@ -349,7 +381,7 @@ class TradeService:
         average_loss = sum(all_losses) / len(all_losses) if all_losses else 0
 
         profit_factor = total_won / total_lost if total_lost != 0 else 0
-        
+
         timed_trades = [t.duration_in_minutes for t in trades if t.duration_in_minutes > 0]
         average_holding_time_minutes = sum(timed_trades) / len(timed_trades) if timed_trades else 0
 
@@ -361,7 +393,7 @@ class TradeService:
             symbol = trade.symbol
             if not symbol:
                 continue
-                
+
             if symbol not in symbol_stats:
                 symbol_stats[symbol] = {
                     'symbol': symbol,
@@ -370,14 +402,14 @@ class TradeService:
                     'total_invested': 0,
                     'breakeven_trades': 0
                 }
-            
+
             symbol_stats[symbol]['total_trades'] += 1
             symbol_stats[symbol]['total_profit'] += trade.profit
             symbol_stats[symbol]['total_invested'] += trade.quantity
             if trade.is_breakeven():
                 symbol_stats[symbol]['breakeven_trades'] += 1
 
-        #     add
+            #     add
             trade_day = trade.open_time.date()
             if trade.close_time:
                 daily_pnl[trade_day] += trade.profit
@@ -397,7 +429,6 @@ class TradeService:
             daily_profits[trade_day] += trade.profit
             # Calculate commissions, swaps, and fees
 
-
             # Calculate breakeven trades
             if -0.2 <= trade.profit <= 0.2:
                 breakeven_days += 1
@@ -410,7 +441,7 @@ class TradeService:
                 continue
 
             day_key = trade_date.strftime('%Y-%m-%d')
-            
+
             if day_key not in day_performances:
                 day_performances[day_key] = {
                     'day': day_key,
@@ -420,12 +451,12 @@ class TradeService:
                     'total_loss': 0,
                     'total_invested': 0,
                 }
-            
+
             day_performances[day_key]['total_trades'] += 1
             day_performances[day_key]['total_profit'] += trade.profit
             if trade.profit > 0:
                 day_performances[day_key]['total_won'] += trade.profit
-            else:    
+            else:
                 day_performances[day_key]['total_loss'] += trade.profit
 
             day_performances[day_key]['total_invested'] += trade.profit
@@ -436,9 +467,9 @@ class TradeService:
             trade_date = trade.open_time
             if not trade_date:
                 continue
-                
+
             month_key = trade_date.strftime('%Y-%m')
-            
+
             if month_key not in monthly_stats:
                 monthly_stats[month_key] = {
                     'month': month_key,
@@ -446,7 +477,7 @@ class TradeService:
                     'total_profit': 0,
                     'total_invested': 0,
                 }
-            
+
             monthly_stats[month_key]['total_trades'] += 1
             monthly_stats[month_key]['total_profit'] += trade.profit
             monthly_stats[month_key]['total_invested'] += trade.profit
@@ -506,7 +537,7 @@ class TradeService:
                 'worst_loss': worst_loss,
                 'average_win': average_win,
                 'average_loss': average_loss,
-                'profit_factor': profit_factor,                    
+                'profit_factor': profit_factor,
                 'total_won': total_won,
                 'total_lost': total_lost,
                 'average_holding_time_minutes': average_holding_time_minutes,
@@ -544,23 +575,22 @@ class TradeService:
             'session_analysis': sessions_analysis,
         }
 
-
     @staticmethod
     def get_leaderboard():
         """
         Calculates leaderboard across all trade sources
         """
         leaderboard = []
-        
+
         for user in CustomUser.objects.all():
             trades = TradeService.get_all_trades(user)
             stats = TradeService.calculate_statistics(trades)
-            
+
             leaderboard.append({
                 'username': user.username,
                 'total_profit': stats['overall_statistics']['total_profit'],
                 'total_trades': stats['overall_statistics']['total_trades'],
                 'win_rate': stats['overall_statistics']['win_rate']
             })
-        
+
         return sorted(leaderboard, key=lambda x: x['total_profit'], reverse=True)
