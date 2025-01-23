@@ -13,7 +13,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 from .services import TradeService, AccountService
 from asgiref.sync import async_to_sync
 
-
 from .email_service import brevo_email_service
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote, UploadedFile
 from .serializers import (
@@ -23,12 +22,14 @@ from .serializers import (
     TradeNoteSerializer
 )
 
+
 class HelloThereView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         return Response({'message': 'Hello There!'})
-    
+
+
 class AuthenticateAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -44,7 +45,7 @@ class AuthenticateAccountView(APIView):
                 {'error': 'All fields are required: server_name, username, password, and platform.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         try:
             AccountService.authenticate(username, password, server_name, platform, account_name, request.user)
             return Response({'message': 'Account authenticated.'}, status=status.HTTP_200_OK)
@@ -53,6 +54,7 @@ class AuthenticateAccountView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -64,7 +66,7 @@ class DeleteAccount(APIView):
             return Response({'error': 'All fields are required: account_id.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        try: 
+        try:
             account = TradeAccount.objects.get(id=account_id)
         except TradeAccount.DoesNotExist:
             return Response({'error': 'Account not found.'},
@@ -97,7 +99,7 @@ class UserLoginView(generics.GenericAPIView):
             token = AccessToken.for_user(user)
             return Response({'access': str(token)})
         return Response({'detail': 'Invalid credentials'}, status=401)
-    
+
 
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -106,7 +108,7 @@ class UserProfileView(generics.GenericAPIView):
         user = request.user
 
         return Response({'email': user.email, 'first_name': user.first_name, 'last_name': user.last_name})
-    
+
     def put(self, request, *args, **kwargs):
         user = request.user
 
@@ -197,7 +199,7 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Base queryset filtered by user
         queryset = TradeNote.objects.filter(user=self.request.user)
-        
+
         # Check if date parameter is provided in the request
         date_param = self.request.query_params.get('date', None)
         if date_param:
@@ -209,7 +211,7 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
             except ValueError:
                 # Handle invalid date format
                 return TradeNote.objects.none()
-        
+
         return queryset
 
     def perform_create(self, serializer):
@@ -240,6 +242,7 @@ class UserRegistrationView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class AccountsSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -250,9 +253,10 @@ class AccountsSummaryView(APIView):
             return Response({'accounts': [account.to_dict() for account in accounts]}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
-                {"error": f"Error fetching accounts: {str(e)}"}, 
+                {"error": f"Error fetching accounts: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class AccountPerformanceView(APIView):
     permission_classes = [IsAuthenticated]
@@ -264,9 +268,10 @@ class AccountPerformanceView(APIView):
             return Response(performance, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
-                {"error": f"Error fetching account performance: {str(e)}"}, 
+                {"error": f"Error fetching account performance: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class ComprehensiveTradeStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -278,29 +283,29 @@ class ComprehensiveTradeStatisticsView(APIView):
 
         parsed_from_date = None
         parsed_until_date = None
-        
+
         if from_date and until_date:
             parsed_from_date = timezone.datetime.strptime(from_date, '%Y-%m-%d')
             parsed_until_date = timezone.datetime.strptime(until_date, '%Y-%m-%d')
-            
+
         # Fetch trades using the service method with optional datetime filtering
         trades = TradeService.get_all_trades(
-            request.user, 
-            from_date=parsed_from_date,  
+            request.user,
+            from_date=parsed_from_date,
             to_date=parsed_until_date
         )
-        
+
         accounts = TradeService.get_all_accounts(request.user, disabled=disabled)
 
         statistics = TradeService.calculate_statistics(trades, accounts)
 
         return Response(statistics)
-    
+
+
 class AccountBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
         # Get the from and to dates from the request query parameters
         from_date = request.query_params.get('from')
         until_date = request.query_params.get('to')
@@ -315,12 +320,13 @@ class AccountBalanceView(APIView):
 
         # Fetch trades using the service method with optional datetime filtering
         balance_chart = TradeService.get_account_balance_chart(
-            request.user, 
-            from_date=parsed_from_date, 
+            request.user,
+            from_date=parsed_from_date,
             to_date=parsed_until_date
         )
 
         return Response(balance_chart)
+
 
 class LeaderBoardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -329,23 +335,25 @@ class LeaderBoardView(APIView):
         leaderboard = TradeService.get_leaderboard()
         return Response(leaderboard)
 
+
 class RefreshAllAccountsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         force_refresh = request.data.get('force_refresh', False)
-        
+
         async_to_sync(AccountService.check_refresh)(request.user, force_refresh=force_refresh)
 
         return Response({
             'message': 'Refresh complete'
         }, status=status.HTTP_200_OK)
-    
+
+
 class UserGetAllTradesView(APIView):
     def get(self, request):
-        
-        try:            
-            
+
+        try:
+
             from_date = request.query_params.get('from')
             until_date = request.query_params.get('to')
 
@@ -361,11 +369,11 @@ class UserGetAllTradesView(APIView):
 
             # Fetch trades using the service method with optional datetime filtering
             trades = TradeService.get_all_trades(
-                request.user, 
-                from_date=parsed_from_date, 
+                request.user,
+                from_date=parsed_from_date,
                 to_date=parsed_until_date
             )
-            
+
             response_data = {
                 'user': {
                     "id": request.user.id,
@@ -394,6 +402,7 @@ class UploadFileView(APIView):
 
         return Response({"url": uploaded_file.file.url}, status=status.HTTP_201_CREATED)
 
+
 class ToggleUserAccountStatus(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -409,7 +418,7 @@ class ToggleUserAccountStatus(APIView):
                 return Response({"error": "mode must be a boolean (true or false)"}, status=status.HTTP_400_BAD_REQUEST)
 
             user = request.user
-            trade_account  = TradeAccount.objects.get(id=account_id, user=user)
+            trade_account = TradeAccount.objects.get(id=account_id, user=user)
 
             trade_account.disabled = disable
             response = "account enabled" if not disable else "account disabled"
