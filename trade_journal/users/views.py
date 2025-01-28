@@ -12,7 +12,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 from .services import TradeService, AccountService
 from asgiref.sync import async_to_sync
-
+from asgiref.sync import sync_to_async
+import asyncio
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from .email_service import brevo_email_service
 from .models import CustomUser, TradeAccount, ManualTrade, TradeNote, UploadedFile
 from .serializers import (
@@ -21,6 +24,11 @@ from .serializers import (
     TradeAccountSerializer,
     TradeNoteSerializer
 )
+
+
+import platform
+if platform.system() == 'Windows':
+   asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 class HelloThereView(generics.GenericAPIView):
@@ -339,9 +347,11 @@ class LeaderBoardView(APIView):
 class RefreshAllAccountsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @method_decorator(csrf_exempt)
     def post(self, request, *args, **kwargs):
         force_refresh = request.data.get('force_refresh', False)
 
+        # Directly call the asynchronous function using async_to_sync
         async_to_sync(AccountService.check_refresh)(request.user, force_refresh=force_refresh)
 
         return Response({
