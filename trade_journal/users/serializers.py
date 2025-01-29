@@ -50,7 +50,7 @@ class TradeAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeAccount
         fields = ['id', 'account_name', 'balance', 'created_at', 'updated_at', 'status', 'platform']
-        read_only_fields = ['id', 'created_at', 'updated_at','status', 'platform']
+        read_only_fields = ['id', 'created_at', 'updated_at','status', 'platform', 'disabled']
 
     def validate_balance(self, value):
         if value < 0:
