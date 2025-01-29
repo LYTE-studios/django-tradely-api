@@ -152,6 +152,12 @@ class MetaTraderService:
                             trade_type = TradeType.sell
                         elif trade['type'] == 'DEAL_TYPE_BUY':
                             trade_type = TradeType.buy
+                        # if open trade
+                        if trade['type'] == 'POSITION_TYPE_SELL':
+                            trade_type = TradeType.sell
+                        elif trade['type'] == 'POSITION_TYPE_BUY':
+                            trade_type = TradeType.buy
+
                         close_time = trade.get('closeTime', None)
                         if close_time is not None:
                             close_time = get_aware_datetime(trade['closeTime'])
