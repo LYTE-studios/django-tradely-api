@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
-from .models import TradeAccount, ManualTrade, TradeNote, CustomUser
+from .models import TradeAccount, ManualTrade, TradeNote, CustomUser, UploadedFile
 from .services import TradeService
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 User = get_user_model()
 
@@ -194,3 +195,35 @@ class ToggleUserAccountStatusTests(APITestCase):
         # Assertions
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn("error", response.data)
+
+
+class TradeNoteImageTests(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(email='test@example.com', password='testpass123', username='testuser')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.trade_note = TradeNote.objects.create(user=self.user, trade_note="Test Note")
+
+    def test_upload_image(self):
+        url = reverse('trade-note-images-list', kwargs={'trade_note_pk': self.trade_note.pk})
+        image = SimpleUploadedFile("test.png", b"file_content", content_type="image/png")
+        response = self.client.post(url, {'file': image}, format='multipart')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(self.trade_note.images.count(), 1)
+
+    def test_list_images(self):
+        UploadedFile.objects.create(user=self.user, trade_note=self.trade_note, file='test.png')
+        url = reverse('trade-note-images-list', kwargs={'trade_note_pk': self.trade_note.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
+    def test_delete_image(self):
+        uploaded_file = UploadedFile.objects.create(user=self.user, trade_note=self.trade_note, file='test.png')
+        url = reverse('trade-note-images-detail', kwargs={
+            'trade_note_pk': self.trade_note.pk,
+            'pk': uploaded_file.pk
+        })
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.trade_note.images.count(), 0)

@@ -26,6 +26,7 @@ ejtraderct = "*"
 uvloop = "*"
 python-dateutil = "*"
 whitenoise = "*"
+drf-nested-routers = "*"
 
 [dev-packages]
 

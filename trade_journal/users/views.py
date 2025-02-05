@@ -22,9 +22,11 @@ from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
     TradeAccountSerializer,
-    TradeNoteSerializer
+    TradeNoteSerializer,
+    UploadedFileSerializer
 )
-
+from rest_framework import viewsets, permissions, exceptions
+from rest_framework.parsers import MultiPartParser, FormParser
 
 import platform
 if platform.system() == 'Windows':
@@ -437,3 +439,23 @@ class ToggleUserAccountStatus(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TradeNoteImageViewSet(viewsets.ModelViewSet):
+    serializer_class = UploadedFileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def get_queryset(self):
+        trade_note_pk = self.kwargs.get('trade_note_pk')
+        return UploadedFile.objects.filter(
+            trade_note_id=trade_note_pk,
+            user=self.request.user
+        )
+
+    def perform_create(self, serializer):
+        trade_note_pk = self.kwargs.get('trade_note_pk')
+        try:
+            trade_note = TradeNote.objects.get(id=trade_note_pk, user=self.request.user)
+        except TradeNote.DoesNotExist:
+            raise exceptions.NotFound("TradeNote not found.")
+        serializer.save(user=self.request.user, trade_note=trade_note)

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import TradeAccount, ManualTrade, TradeNote
+from .models import TradeAccount, ManualTrade, TradeNote, UploadedFile
 from decimal import Decimal
 
 User = get_user_model()
@@ -123,8 +123,20 @@ class SymbolPerformanceSerializer(serializers.Serializer):
         child=serializers.IntegerField()
     )
 
+class UploadedFileSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.file.url) if obj.file else None
+
+    class Meta:
+        model = UploadedFile
+        fields = ['id', 'file_url', 'created_at']
 
 class TradeNoteSerializer(serializers.ModelSerializer):
+    images = UploadedFileSerializer(many=True, read_only=True)
+
     class Meta:
         model = TradeNote
         fields = ['id', 'user', 'trade', 'trade_note', 'note_date', 'created_at', 'updated_at']
