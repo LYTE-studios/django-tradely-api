@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
-
+from rest_framework_nested import routers
 router = DefaultRouter()
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -21,6 +21,7 @@ from .views import (
     UserProfileView,
     DeleteAccount,
     AuthenticateAccountView, ToggleUserAccountStatus,
+    TradeNoteImageViewSet,
 )
 
 # Create a router for the viewsets
@@ -28,8 +29,12 @@ router = DefaultRouter()
 router.register(r'trade-accounts', TradeAccountViewSet, basename='trade-account')
 router.register(r'trade-notes', TradeNoteViewSet, basename='trade-notes')
 
+trade_notes_router = routers.NestedDefaultRouter(router, r'trade-notes', lookup='trade_note')
+trade_notes_router.register(r'images', TradeNoteImageViewSet, basename='trade-note-images')
+
 urlpatterns = [
     path('', include(router.urls)),
+    path('', include(trade_notes_router.urls)),
     # Authentication routes
     path('register/', UserRegisterView.as_view(), name='register'),
     path('login/', UserLoginView.as_view(), name='login'),
@@ -68,9 +73,6 @@ urlpatterns = [
     path('leaderboard/', LeaderBoardView.as_view(), name='leaderboard'),
 
     path('upload-file/', UploadFileView.as_view(), name='upload-file'),
-    # Include the router URLs for trade accounts and manual trades
-    path('', include(router.urls)),
-
     # Toggle user account mode
     path('toggle-account-mode/<str:account_id>/', ToggleUserAccountStatus.as_view(), name='toggle-account-mode'),
 ]

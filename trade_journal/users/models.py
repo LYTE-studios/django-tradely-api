@@ -87,7 +87,7 @@ class ManualTrade(models.Model):
     exchange_id = models.CharField(max_length=64, null=True)
 
     # BUY or SELL
-    trade_type = models.CharField(max_length=4, choices=TradeType, null=True, blank=True)
+    trade_type = models.CharField(max_length=4, choices=TradeType.choices, null=True, blank=True)
 
     # Trade Symbol
     symbol = models.CharField(max_length=10, null=True, default='')
@@ -205,7 +205,8 @@ class UploadedFile(models.Model):
         return f'uploaded_files/{name}/{filename}'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.ImageField(upload_to=upload_location, null=True, blank=True, storage=MediaStorage())
+    trade_note = models.ForeignKey(TradeNote, on_delete=models.CASCADE, related_name='images', null=True, blank=True)
+    file = models.ImageField(upload_to='tradesImagesUpload/', null=True, blank=True, storage=MediaStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
