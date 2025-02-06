@@ -6,20 +6,31 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('payments', '0001_initial'),
+        ("payments", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Email',
+            name="Email",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('subject', models.CharField(max_length=255)),
-                ('message', models.TextField()),
-                ('recipient_list', models.TextField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('sent_mail_status', models.CharField(choices=[('sent', 'Sent'), ('failed', 'Failed'), ('pending', 'Pending')], default='pending', max_length=10)),
-                ('delivery_time', models.DateTimeField(blank=True, null=True)),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("subject", models.CharField(max_length=255)),
+                ("message", models.TextField()),
+                ("recipient_list", models.TextField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "sent_mail_status",
+                    models.CharField(
+                        choices=[
+                            ("sent", "Sent"),
+                            ("failed", "Failed"),
+                            ("pending", "Pending"),
+                        ],
+                        default="pending",
+                        max_length=10,
+                    ),
+                ),
+                ("delivery_time", models.DateTimeField(blank=True, null=True)),
             ],
         ),
     ]

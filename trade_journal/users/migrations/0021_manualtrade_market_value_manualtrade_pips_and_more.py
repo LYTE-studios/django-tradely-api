@@ -6,38 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0020_alter_manualtrade_quantity'),
+        ("users", "0020_alter_manualtrade_quantity"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='manualtrade',
-            name='market_value',
+            model_name="manualtrade",
+            name="market_value",
             field=models.FloatField(blank=True, default=0, null=True),
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='pips',
+            model_name="manualtrade",
+            name="pips",
             field=models.FloatField(blank=True, default=0, null=True),
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='risk_in_balance_percent',
+            model_name="manualtrade",
+            name="risk_in_balance_percent",
             field=models.FloatField(blank=True, default=0, null=True),
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='risk_in_pips',
+            model_name="manualtrade",
+            name="risk_in_pips",
             field=models.FloatField(blank=True, default=0, null=True),
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='success',
+            model_name="manualtrade",
+            name="success",
             field=models.CharField(blank=True, max_length=10, null=True),
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='volume',
+            model_name="manualtrade",
+            name="volume",
             field=models.FloatField(blank=True, default=0, null=True),
         ),
     ]

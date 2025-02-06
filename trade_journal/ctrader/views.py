@@ -19,31 +19,31 @@ class DeleteAccount(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, *args, **kwargs):
-        account_id = kwargs['account_id']
+        account_id = kwargs["account_id"]
 
         if not account_id:
-            return Response({'error': 'All fields are required: account_id.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "All fields are required: account_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         account = CTraderAccount.objects.get(id=account_id)
 
         account.delete()
 
-        return Response({
-            'message': 'Account deleted.'
-        }, status=status.HTTP_200_OK)
+        return Response({"message": "Account deleted."}, status=status.HTTP_200_OK)
 
 
 class CTraderAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def login(self, request):
         user = self.request.user
-        sender_id = request.data.get('account')
-        password = request.data.get('password')
-        server = request.data.get('server')
-        account_name = request.data.get('account_name')
+        sender_id = request.data.get("account")
+        password = request.data.get("password")
+        server = request.data.get("server")
+        account_name = request.data.get("account_name")
 
         CTraderService.login(user, server, sender_id, password)
 
@@ -54,18 +54,24 @@ class CTraderAccountViewSet(viewsets.ModelViewSet):
             CTraderAccount.objects.update_or_create(
                 user=user,
                 defaults={
-                    'account': sender_id,
-                    'server': server,
-                    'password': encrypt_password(password),
-                    'key_code': KEY,
-                    'account_name': account_name
-                }
+                    "account": sender_id,
+                    "server": server,
+                    "password": encrypt_password(password),
+                    "key_code": KEY,
+                    "account_name": account_name,
+                },
             )
 
-            return Response({
-                'message': 'Login successful.',
-                'account': sender_id,
-                'server': server,
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "message": "Login successful.",
+                    "account": sender_id,
+                    "server": server,
+                },
+                status=status.HTTP_200_OK,
+            )
         else:
-            return Response({'error': 'Invalid login credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"error": "Invalid login credentials."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )

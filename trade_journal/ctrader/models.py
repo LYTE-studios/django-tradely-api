@@ -19,14 +19,14 @@ class CTraderAccount(models.Model):
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'account': self.account,
-            'server': self.server,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'balance': self.balance,
-            'account_name': self.account_name,
+            "id": self.id,
+            "account": self.account,
+            "server": self.server,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "balance": self.balance,
+            "account_name": self.account_name,
         }
 
     def __str__(self):
@@ -48,4 +48,4 @@ class CTrade(models.Model):
     is_deposit = models.BooleanField(default=False)
 
     def __str__(self):
-        return f'Trade {self.id} for user {self.user_id}'
+        return f"Trade {self.id} for user {self.user_id}"

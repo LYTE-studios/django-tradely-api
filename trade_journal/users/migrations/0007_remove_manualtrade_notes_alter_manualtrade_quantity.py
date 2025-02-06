@@ -6,17 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0006_remove_manualtrade_account'),
+        ("users", "0006_remove_manualtrade_account"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='manualtrade',
-            name='notes',
+            model_name="manualtrade",
+            name="notes",
         ),
         migrations.AlterField(
-            model_name='manualtrade',
-            name='quantity',
+            model_name="manualtrade",
+            name="quantity",
             field=models.IntegerField(blank=True, default=1, null=True),
         ),
     ]

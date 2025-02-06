@@ -8,13 +8,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0017_tradeaccount_credentials'),
+        ("users", "0017_tradeaccount_credentials"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedfile',
-            name='file',
-            field=models.ImageField(blank=True, null=True, storage=users.storage_backend.MediaStorage(), upload_to=users.models.UploadedFile.upload_location),
+            model_name="uploadedfile",
+            name="file",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                storage=users.storage_backend.MediaStorage(),
+                upload_to=users.models.UploadedFile.upload_location,
+            ),
         ),
     ]

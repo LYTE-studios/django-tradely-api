@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0018_alter_uploadedfile_file'),
+        ("users", "0018_alter_uploadedfile_file"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='manualtrade',
-            name='active',
+            model_name="manualtrade",
+            name="active",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='tradeaccount',
-            name='disabled',
+            model_name="tradeaccount",
+            name="disabled",
             field=models.BooleanField(default=False),
         ),
         migrations.AlterField(
-            model_name='manualtrade',
-            name='id',
+            model_name="manualtrade",
+            name="id",
             field=models.AutoField(primary_key=True, serialize=False),
         ),
     ]

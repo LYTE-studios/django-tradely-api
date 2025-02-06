@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ctrader', '0002_ctraderaccount_account_name'),
+        ("ctrader", "0002_ctraderaccount_account_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='ctrade',
-            name='open_time',
+            model_name="ctrade",
+            name="open_time",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

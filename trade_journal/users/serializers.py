@@ -9,25 +9,25 @@ User = get_user_model()
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('username', 'email', 'password')
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = ("username", "email", "password")
+        extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
 
-        email = validated_data.get('email')
+        email = validated_data.get("email")
 
-        whitelist = 'tradely.io'
+        whitelist = "tradely.io"
 
         if whitelist in email:
             user = User(**validated_data)
-            user.set_password(validated_data['password'])
+            user.set_password(validated_data["password"])
             user.save()
             return user
         else:
-            raise serializers.ValidationError('Email not allowed')
+            raise serializers.ValidationError("Email not allowed")
 
         user = User(**validated_data)
-        user.set_password(validated_data['password'])
+        user.set_password(validated_data["password"])
         user.save()
         return user
 
@@ -43,14 +43,22 @@ from .models import CustomUser
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth']
+        fields = ["id", "username", "email", "first_name", "last_name", "date_of_birth"]
 
 
 class TradeAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeAccount
-        fields = ['id', 'account_name', 'balance', 'created_at', 'updated_at', 'status', 'platform']
-        read_only_fields = ['id', 'created_at', 'updated_at','status', 'platform']
+        fields = [
+            "id",
+            "account_name",
+            "balance",
+            "created_at",
+            "updated_at",
+            "status",
+            "platform",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "status", "platform"]
 
     def validate_balance(self, value):
         if value < 0:
@@ -104,6 +112,7 @@ class TradeStatisticsSerializer(serializers.Serializer):
     """
     Serializer for presenting structured trade statistics
     """
+
     total_trades = serializers.IntegerField()
     total_invested = serializers.DecimalField(max_digits=15, decimal_places=2)
     average_trade_size = serializers.DecimalField(max_digits=15, decimal_places=2)
@@ -114,42 +123,57 @@ class SymbolPerformanceSerializer(serializers.Serializer):
     """
     Serializer for symbol-level trade performance
     """
+
     symbol = serializers.CharField()
     total_trades = serializers.IntegerField()
     total_quantity = serializers.IntegerField()
     total_amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     avg_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    trade_distribution = serializers.DictField(
-        child=serializers.IntegerField()
-    )
+    trade_distribution = serializers.DictField(child=serializers.IntegerField())
 
 
 class TradeNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeNote
-        fields = ['id', 'user', 'trade', 'trade_note', 'note_date', 'created_at', 'updated_at']
-        read_only_fields = ['user']
+        fields = [
+            "id",
+            "user",
+            "trade",
+            "trade_note",
+            "note_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["user"]
 
     def validate(self, data):
         # If no trade is provided during update, keep the existing trade
-        if not data.get('trade') and not data.get('note_date'):
-            raise serializers.ValidationError("Either trade or note_date must be provided")
+        if not data.get("trade") and not data.get("note_date"):
+            raise serializers.ValidationError(
+                "Either trade or note_date must be provided"
+            )
 
         # Validate that the trade belongs to the user's account
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request and request.user:
-            trade = data.get('trade')
+            trade = data.get("trade")
             if trade and trade.account.user != request.user:
-                raise serializers.ValidationError("You can only create notes for trades in your accounts.")
+                raise serializers.ValidationError(
+                    "You can only create notes for trades in your accounts."
+                )
 
         return data
 
     def create(self, validated_data):
         # Ensure the user is set from the request
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request and request.user:
-            validated_data['user'] = request.user
+            validated_data["user"] = request.user
 
-        note, created = TradeNote.objects.update_or_create(note_date=validated_data['note_date'], user=validated_data['user'], defaults=validated_data)
+        note, created = TradeNote.objects.update_or_create(
+            note_date=validated_data["note_date"],
+            user=validated_data["user"],
+            defaults=validated_data,
+        )
 
         return note

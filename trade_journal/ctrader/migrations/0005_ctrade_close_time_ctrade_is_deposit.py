@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ctrader', '0004_alter_ctraderaccount_account_name'),
+        ("ctrader", "0004_alter_ctraderaccount_account_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='ctrade',
-            name='close_time',
+            model_name="ctrade",
+            name="close_time",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='ctrade',
-            name='is_deposit',
+            model_name="ctrade",
+            name="is_deposit",
             field=models.BooleanField(default=False),
         ),
     ]

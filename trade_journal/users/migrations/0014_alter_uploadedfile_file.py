@@ -7,13 +7,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0013_uploadedfile'),
+        ("users", "0013_uploadedfile"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedfile',
-            name='file',
+            model_name="uploadedfile",
+            name="file",
             field=models.FileField(upload_to=users.models.UploadedFile.upload_location),
         ),
     ]

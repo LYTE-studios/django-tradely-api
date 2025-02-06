@@ -7,18 +7,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0008_alter_manualtrade_price_alter_manualtrade_symbol_and_more'),
+        ("users", "0008_alter_manualtrade_price_alter_manualtrade_symbol_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='manualtrade',
-            name='user',
+            model_name="manualtrade",
+            name="user",
         ),
         migrations.AddField(
-            model_name='manualtrade',
-            name='account',
-            field=models.ForeignKey(default=None, on_delete=django.db.models.deletion.CASCADE, related_name='manual_trades', to='users.tradeaccount'),
+            model_name="manualtrade",
+            name="account",
+            field=models.ForeignKey(
+                default=None,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="manual_trades",
+                to="users.tradeaccount",
+            ),
             preserve_default=False,
         ),
     ]

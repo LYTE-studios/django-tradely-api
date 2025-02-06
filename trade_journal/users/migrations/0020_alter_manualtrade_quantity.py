@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0019_manualtrade_active_tradeaccount_disabled_and_more'),
+        ("users", "0019_manualtrade_active_tradeaccount_disabled_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='manualtrade',
-            name='quantity',
+            model_name="manualtrade",
+            name="quantity",
             field=models.FloatField(blank=True, default=1, null=True),
         ),
     ]

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0021_manualtrade_market_value_manualtrade_pips_and_more'),
+        ("users", "0021_manualtrade_market_value_manualtrade_pips_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='manualtrade',
-            name='gain',
+            model_name="manualtrade",
+            name="gain",
             field=models.DecimalField(decimal_places=4, max_digits=10, null=True),
         ),
     ]

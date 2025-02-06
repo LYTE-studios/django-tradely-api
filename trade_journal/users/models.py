@@ -11,7 +11,7 @@ class CustomUser(AbstractUser):
     # Any additional fields can go here
     email = models.EmailField(unique=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    currency = models.CharField(max_length=10, null=True, default='USD')
+    currency = models.CharField(max_length=10, null=True, default="USD")
 
 
 class ExchangeRate(models.Model):
@@ -26,26 +26,31 @@ class ExchangeRate(models.Model):
 
 # -- Trade specific --
 
+
 class AccountStatus(models.TextChoices):
-    active = 'Active'
-    inactive = 'Inactive'
+    active = "Active"
+    inactive = "Inactive"
 
 
 class Platform(models.TextChoices):
-    meta_trader_4 = 'MetaTrader4'
-    meta_trader_5 = 'MetaTrader5'
-    trade_locker = 'TradeLocker'
-    c_trader = 'CTrader'
-    manual = 'Manual'
+    meta_trader_4 = "MetaTrader4"
+    meta_trader_5 = "MetaTrader5"
+    trade_locker = "TradeLocker"
+    c_trader = "CTrader"
+    manual = "Manual"
 
 
 class TradeType(models.TextChoices):
-    buy = 'Buy'
-    sell = 'Sell'
+    buy = "Buy"
+    sell = "Sell"
 
 
 class TradeAccount(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_accounts')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="trade_accounts",
+    )
     account_id = models.CharField(max_length=255, null=True)
     account_name = models.CharField(max_length=255, null=True)
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -53,25 +58,29 @@ class TradeAccount(models.Model):
     cached_until = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    platform = models.CharField(max_length=64, choices=Platform.choices, default=Platform.manual)
-    status = models.CharField(max_length=64, choices=AccountStatus.choices, default=AccountStatus.active)
+    platform = models.CharField(
+        max_length=64, choices=Platform.choices, default=Platform.manual
+    )
+    status = models.CharField(
+        max_length=64, choices=AccountStatus.choices, default=AccountStatus.active
+    )
     credentials = models.CharField(max_length=256, null=True)
-    currency = models.CharField(max_length=10, null=True, default='USD')
+    currency = models.CharField(max_length=10, null=True, default="USD")
     disabled = models.BooleanField(default=False)
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'user_id': self.user.id,
-            'account_name': self.account_name,
-            'balance': self.balance,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'cached_until': self.cached_until,
-            'status': self.status,
-            'platform': self.platform,
-            'currency': self.currency,
-            'disabled': self.disabled,
+            "id": self.id,
+            "user_id": self.user.id,
+            "account_name": self.account_name,
+            "balance": self.balance,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "cached_until": self.cached_until,
+            "status": self.status,
+            "platform": self.platform,
+            "currency": self.currency,
+            "disabled": self.disabled,
         }
 
     def __str__(self):
@@ -80,17 +89,24 @@ class TradeAccount(models.Model):
 
 class ManualTrade(models.Model):
     id = models.AutoField(primary_key=True)
-    account = models.ForeignKey(TradeAccount, on_delete=models.CASCADE, related_name='manual_trades', null=True,
-                                blank=True)
+    account = models.ForeignKey(
+        TradeAccount,
+        on_delete=models.CASCADE,
+        related_name="manual_trades",
+        null=True,
+        blank=True,
+    )
 
     # Foreign Reference
     exchange_id = models.CharField(max_length=64, null=True)
 
     # BUY or SELL
-    trade_type = models.CharField(max_length=4, choices=TradeType, null=True, blank=True)
+    trade_type = models.CharField(
+        max_length=4, choices=TradeType, null=True, blank=True
+    )
 
     # Trade Symbol
-    symbol = models.CharField(max_length=10, null=True, default='')
+    symbol = models.CharField(max_length=10, null=True, default="")
 
     # Lot size
     quantity = models.FloatField(null=True, blank=True, default=1)
@@ -134,26 +150,26 @@ class ManualTrade(models.Model):
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'trade_type': self.trade_type,
-            'symbol': self.symbol,
-            'quantity': self.quantity,
-            'price': self.open_price,
-            'gain': self.gain,
-            'profit': self.profit,
-            'total_amount': self.quantity,
-            'trade_date': self.open_time,
-            'close_date': self.close_time,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'duration_in_minutes': self.duration_in_minutes,
-            'currency': self.account.currency,
-            'volume': self.volume,
-            'pips': self.pips,
-            'risk_in_balance_percent': self.risk_in_balance_percent,
-            'risk_in_pips': self.risk_in_pips,
-            'market_value': self.market_value,
-            'active': self.active
+            "id": self.id,
+            "trade_type": self.trade_type,
+            "symbol": self.symbol,
+            "quantity": self.quantity,
+            "price": self.open_price,
+            "gain": self.gain,
+            "profit": self.profit,
+            "total_amount": self.quantity,
+            "trade_date": self.open_time,
+            "close_date": self.close_time,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "duration_in_minutes": self.duration_in_minutes,
+            "currency": self.account.currency,
+            "volume": self.volume,
+            "pips": self.pips,
+            "risk_in_balance_percent": self.risk_in_balance_percent,
+            "risk_in_pips": self.risk_in_pips,
+            "market_value": self.market_value,
+            "active": self.active,
         }
 
     def is_breakeven(self):
@@ -163,7 +179,9 @@ class ManualTrade(models.Model):
         if self.gain is None:
             return False
         """
-        min_gain_threshold = getattr(settings, 'TRADE_MIN_GAIN_THRESHOLD', 0.002)  # Default to 0.2%
+        min_gain_threshold = getattr(
+            settings, "TRADE_MIN_GAIN_THRESHOLD", 0.002
+        )  # Default to 0.2%
         return abs(float(self.gain)) < min_gain_threshold
 
     def should_count_for_statistics(self):
@@ -179,22 +197,35 @@ class ManualTrade(models.Model):
 
 # -- Note specific --
 
+
 class TradeNote(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_notes')
-    trade = models.ForeignKey(ManualTrade, on_delete=models.CASCADE, related_name='trade_notes', null=True, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="trade_notes"
+    )
+    trade = models.ForeignKey(
+        ManualTrade,
+        on_delete=models.CASCADE,
+        related_name="trade_notes",
+        null=True,
+        blank=True,
+    )
     note_date = models.DateField(null=True, blank=True)
     trade_note = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Note for {self.trade.symbol} trade" if self.trade else f"Note for {self.note_date}"
+        return (
+            f"Note for {self.trade.symbol} trade"
+            if self.trade
+            else f"Note for {self.note_date}"
+        )
 
 
 class UploadedFile(models.Model):
 
     def upload_location(instance, filename):
-        extension = filename.split('.')[-1]
+        extension = filename.split(".")[-1]
 
         from django.utils import timezone
 
@@ -202,10 +233,16 @@ class UploadedFile(models.Model):
 
         name = int(now.timestamp())
 
-        return f'uploaded_files/{name}/{filename}'
+        return f"uploaded_files/{name}/{filename}"
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.ImageField(upload_to=upload_location, null=True, blank=True, storage=MediaStorage())
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="uploaded_files",
+    )
+    file = models.ImageField(
+        upload_to=upload_location, null=True, blank=True, storage=MediaStorage()
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -7,13 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0015_rename_close_date_manualtrade_close_time_and_more'),
+        ("users", "0015_rename_close_date_manualtrade_close_time_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedfile',
-            name='file',
-            field=models.ImageField(blank=True, null=True, upload_to=users.models.UploadedFile.upload_location),
+            model_name="uploadedfile",
+            name="file",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=users.models.UploadedFile.upload_location,
+            ),
         ),
     ]

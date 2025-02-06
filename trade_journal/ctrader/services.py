@@ -20,13 +20,13 @@ class CTraderService:
             CTraderAccount.objects.update_or_create(
                 user=user,
                 defaults={
-                    'account_name': account_name,
-                    'account': sender_id,
-                    'server': server,
-                    'password': encrypt_password(password),
-                    'demo_status': is_demo,
-                    'key_code': KEY,
-                }
+                    "account_name": account_name,
+                    "account": sender_id,
+                    "server": server,
+                    "password": encrypt_password(password),
+                    "demo_status": is_demo,
+                    "key_code": KEY,
+                },
             )
         return status
 
@@ -36,20 +36,26 @@ class CTraderService:
         accounts = CTraderAccount.objects.filter(user=user)
         return [
             {
-                'id': account.id,
-                'account': account.account,
-                'server': account.server,
-                'demo_status': account.demo_status,
+                "id": account.id,
+                "account": account.account,
+                "server": account.server,
+                "demo_status": account.demo_status,
                 # Add other relevant fields
             }
             for account in accounts
         ]
 
     @staticmethod
-    def fetch_trades(user, from_time: datetime = None, to_time: datetime = None) -> List[ManualTrade]:
+    def fetch_trades(
+        user, from_time: datetime = None, to_time: datetime = None
+    ) -> List[ManualTrade]:
         """Fetch all CTrader trades for a user"""
         if from_time and to_time:
-            trades = CTrade.objects.filter(trader_locker__user=user, open_time__gte=from_time, open_time__lte=to_time)
+            trades = CTrade.objects.filter(
+                trader_locker__user=user,
+                open_time__gte=from_time,
+                open_time__lte=to_time,
+            )
 
         else:
             trades = CTrade.objects.filter(trader_locker__user=user)
@@ -66,33 +72,35 @@ class CTraderService:
         if status:
             trades = api.orders()
             for trade in trades:
-                if trade['type'] == 'DEAL_TYPE_BALANCE':
+                if trade["type"] == "DEAL_TYPE_BALANCE":
                     CTrade.objects.update_or_create(
                         user=user,
-                        ord_id=trade['ord_id'],
+                        ord_id=trade["ord_id"],
                         defaults={
-                            'name': trade['name'],
-                            'side': trade['side'],
-                            'amount': trade['amount'],
-                            'price': trade['price'],
-                            'actual_price': trade['actual_price'],
-                            'is_deposit': True,
-                        })
+                            "name": trade["name"],
+                            "side": trade["side"],
+                            "amount": trade["amount"],
+                            "price": trade["price"],
+                            "actual_price": trade["actual_price"],
+                            "is_deposit": True,
+                        },
+                    )
                 else:
                     CTrade.objects.update_or_create(
                         user=user,
-                        ord_id=trade['ord_id'],
+                        ord_id=trade["ord_id"],
                         defaults={
-                            'name': trade['name'],
-                            'side': trade['side'],
-                            'amount': trade['amount'],
-                            'price': trade['price'],
-                            'actual_price': trade['actual_price'],
-                            'pos_id': trade['pos_id'],
-                            'clid': trade['clid'],
-                            'is_deposit': False,
-                            'open_time': trade['open_time'],
-                            'close_time': trade['close_time'],
-                        })
+                            "name": trade["name"],
+                            "side": trade["side"],
+                            "amount": trade["amount"],
+                            "price": trade["price"],
+                            "actual_price": trade["actual_price"],
+                            "pos_id": trade["pos_id"],
+                            "clid": trade["clid"],
+                            "is_deposit": False,
+                            "open_time": trade["open_time"],
+                            "close_time": trade["close_time"],
+                        },
+                    )
 
         return trades

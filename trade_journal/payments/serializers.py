@@ -12,13 +12,21 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ['id', 'stripe_payment_intent_id', 'amount', 'currency', 'status', 'created_at', 'user']
-        read_only_fields = ['id', 'stripe_payment_intent_id', 'status', 'created_at']
+        fields = [
+            "id",
+            "stripe_payment_intent_id",
+            "amount",
+            "currency",
+            "status",
+            "created_at",
+            "user",
+        ]
+        read_only_fields = ["id", "stripe_payment_intent_id", "status", "created_at"]
 
 
 class PaymentIntentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    currency = serializers.CharField(max_length=3, default='EUR')
+    currency = serializers.CharField(max_length=3, default="EUR")
 
 
 class SendEmailSerializer(serializers.Serializer):
@@ -26,7 +34,7 @@ class SendEmailSerializer(serializers.Serializer):
     message = serializers.CharField(required=True)
     recipient_list = serializers.ListField(
         child=serializers.EmailField(),  # Ensure each recipient is a valid email address
-        required=True
+        required=True,
     )
     deliver_time = serializers.DateTimeField(default=False)
     email_service_name = serializers.CharField(max_length=255)

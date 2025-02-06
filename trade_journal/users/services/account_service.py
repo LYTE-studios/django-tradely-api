@@ -60,14 +60,22 @@ class AccountService:
             await AccountService.refresh_account(account)
 
     @staticmethod
-    def authenticate(username, password, server, platform, account_name, user) -> TradeAccount:
+    def authenticate(
+        username, password, server, platform, account_name, user
+    ) -> TradeAccount:
 
         account_id: str = None
 
         import json
 
         base_credentials = json.dumps(
-            {"username": username, "password": password, "server": server, "platform": platform, })
+            {
+                "username": username,
+                "password": password,
+                "server": server,
+                "platform": platform,
+            }
+        )
 
         try:
             existing_account = TradeAccount.objects.get(credentials=base_credentials)
@@ -79,12 +87,12 @@ class AccountService:
                 account_id=existing_account.account_id,
                 user=user,
                 defaults={
-                    'credentials': base_credentials,
-                    'account_name': account_name,
-                    'status': 'active',
-                    'platform': platform,
-                    'currency': existing_account.currency,
-                }
+                    "credentials": base_credentials,
+                    "account_name": account_name,
+                    "status": "active",
+                    "platform": platform,
+                    "currency": existing_account.currency,
+                },
             )
             return trade_account
 
@@ -92,33 +100,39 @@ class AccountService:
             match platform:
                 case Platform.meta_trader_4:
                     from .meta_trader_service import MetaTraderService
-                    account_id, currency = MetaTraderService.authenticate_sync(server, username, password, 'mt4')
+
+                    account_id, currency = MetaTraderService.authenticate_sync(
+                        server, username, password, "mt4"
+                    )
                 case Platform.meta_trader_5:
                     from .meta_trader_service import MetaTraderService
-                    account_id, currency = MetaTraderService.authenticate_sync(server, username, password, 'mt5')
+
+                    account_id, currency = MetaTraderService.authenticate_sync(
+                        server, username, password, "mt5"
+                    )
         except Exception as e:
             print(f"Error authenticating account: {str(e)}")
-            raise Exception(f'Failed to authenticate accoun: {str(e)}t')
+            raise Exception(f"Failed to authenticate accoun: {str(e)}t")
 
         if not account_id:
-            raise Exception('Account not found')
+            raise Exception("Account not found")
 
         try:
             trade_account, created = TradeAccount.objects.update_or_create(
                 account_id=account_id,
                 user=user,
                 defaults={
-                    'account_name': account_name,
-                    'status': 'active',
-                    'platform': platform,
-                    'currency': currency,
-                }
+                    "account_name": account_name,
+                    "status": "active",
+                    "platform": platform,
+                    "currency": currency,
+                },
             )
 
             print(f"Modified trader account: {trade_account.id}, created: {created}")
 
         except Exception as db_error:
             print(f"Database operation failed: {str(db_error)}")
-            raise Exception('Failed to save account information')
+            raise Exception("Failed to save account information")
 
         return trade_account
