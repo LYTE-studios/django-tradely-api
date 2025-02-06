@@ -438,14 +438,19 @@ class ToggleUserAccountStatus(APIView):
     def patch(self, request, account_id=None):
         try:
             if account_id is None:
-                return Response({"error": "account ID is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response(
+                    {"error": "account ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             user = request.user
             trade_account = TradeAccount.objects.get(id=account_id, user=user)
 
             trade_account.disabled = not trade_account.disabled
-            
-            response = "account enabled" if not trade_account.disabled else "account disabled"
+
+            response = (
+                "account enabled" if not trade_account.disabled else "account disabled"
+            )
 
             trade_account.save()
 
