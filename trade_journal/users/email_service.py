@@ -24,7 +24,7 @@ class BrevoEmailService:
         payload = {
             "sender": {
                 "name": "Trade Journal Platform",
-                "email": settings.DEFAULT_FROM_EMAIL
+                "email": settings.EMAIL_SENDER_ADDRESS
                 or "noreply@tradejournalplatform.com",
             },
             "to": [{"email": user_email}],
@@ -47,7 +47,7 @@ class BrevoEmailService:
         payload = {
             "sender": {
                 "name": "Trade Journal Platform",
-                "email": settings.DEFAULT_FROM_EMAIL
+                "email": settings.EMAIL_SENDER_ADDRESS
                 or "noreply@tradejournalplatform.com",
             },
             "to": [{"email": user_email}],
@@ -59,6 +59,52 @@ class BrevoEmailService:
                     <p>Hi {username},</p>
                     <p>We've received your payment of ${amount}. 
                     Thank you for supporting Trade Journal Platform!</p>
+                </body>
+            </html>
+            """,
+        }
+        return self._send_email(payload)
+
+    def send_payment_failure_email(self, user_email, username, amount):
+        """Send a payment failure email"""
+        payload = {
+            "sender": {
+                "name": "Trade Journal Platform",
+                "email": settings.EMAIL_SENDER_ADDRESS
+                or "noreply@tradejournalplatform.com",
+            },
+            "to": [{"email": user_email}],
+            "subject": "Payment Failed",
+            "htmlContent": f"""
+            <html>
+                <body>
+                    <h1>Payment Failed</h1>
+                    <p>Hi {username},</p>
+                    <p>Your payment of ${amount} has failed. Please try again or contact support.</p>
+                </body>
+            </html>
+            """,
+        }
+        return self._send_email(payload)
+
+    def send_password_reset_email(self, user_email, username, reset_url):
+        """Send a password reset email"""
+        payload = {
+            "sender": {
+                "name": "Trade Journal Platform",
+                "email": settings.EMAIL_SENDER_ADDRESS
+                or "noreply@tradejournalplatform.com",
+            },
+            "to": [{"email": user_email}],
+            "subject": "Password Reset Request",
+            "htmlContent": f"""
+            <html>
+                <body>
+                    <h1>Password Reset Request</h1>
+                    <p>Hi {username},</p>
+                    <p>You requested a password reset. Click the link below to reset your password:</p>
+                    <p><a href="{reset_url}">Reset Password</a></p>
+                    <p>If you did not request a password reset, please ignore this email.</p>
                 </body>
             </html>
             """,

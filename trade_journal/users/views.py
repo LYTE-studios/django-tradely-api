@@ -1,18 +1,12 @@
-from xmlrpc.client import Boolean
-
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from rest_framework import permissions, viewsets, generics
-from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 from .services import TradeService, AccountService
 from asgiref.sync import async_to_sync
-from asgiref.sync import sync_to_async
 import asyncio
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -23,8 +17,15 @@ from .serializers import (
     UserLoginSerializer,
     TradeAccountSerializer,
     TradeNoteSerializer,
+    PasswordChangeSerializer,
+    PasswordResetSerializer,
 )
-
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 import platform
 
@@ -92,12 +93,6 @@ class DeleteAccount(APIView):
         AccountService.delete_account(account)
 
         return Response({"message": "Account deleted."}, status=status.HTTP_200_OK)
-
-
-class UserRegisterView(generics.CreateAPIView):
-    queryset = CustomUser.objects.all()  # or your own user model
-    serializer_class = UserRegistrationSerializer
-    permission_classes = [AllowAny]  # Allow public access
 
 
 class UserLoginView(generics.GenericAPIView):
@@ -246,7 +241,15 @@ class TradeNoteViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
+# class UserRegisterView(generics.CreateAPIView):
+#     queryset = CustomUser.objects.all()  # or your own user model
+#     serializer_class = UserRegistrationSerializer
+#     permission_classes = [AllowAny]  # Allow public access
+
+
 class UserRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -264,6 +267,53 @@ class UserRegistrationView(APIView):
                 print(f"Email service error: {e}")
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data["email"]
+            try:
+                user = CustomUser.objects.get(email=email)
+                token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                reset_url = f"{request.build_absolute_uri('/reset-password/')}?uid={uid}&token={token}"
+                # Send password reset email using BrevoEmailService
+                success, _ = brevo_email_service.send_password_reset_email(
+                    user_email=user.email, username=user.username, reset_url=reset_url
+                )
+
+                if success:
+                    return Response(
+                        {"message": "Password reset email sent."},
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    return Response(
+                        {"error": "Failed to send password reset email."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+            except CustomUser.DoesNotExist:
+                return Response(
+                    {"error": "User with this email does not exist."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordChangeConfirmView(APIView):
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Password has been reset successfully."},
+                status=status.HTTP_200_OK,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

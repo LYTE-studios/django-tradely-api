@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
 from django.urls import reverse
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -8,6 +7,12 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from .models import TradeAccount, ManualTrade, TradeNote, CustomUser
 from .services import TradeService
+import unittest
+from unittest.mock import patch, Mock
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from trade_journal.users.email_service import BrevoEmailService
+import requests
 
 User = get_user_model()
 
@@ -206,3 +211,70 @@ class ToggleUserAccountStatusTests(APITestCase):
         # Assertions
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn("error", response.data)
+
+
+class TestBrevoEmailService(unittest.TestCase):
+
+    @patch("trade_journal.users.email_service.requests.post")
+    def setUp(self, mock_post):
+        settings.configure(
+            BREVO_API_KEY="test_api_key",
+            EMAIL_SENDER_ADDRESS="noreply@tradejournalplatform.com",
+        )
+        self.email_service = BrevoEmailService()
+
+    @patch("trade_journal.users.email_service.requests.post")
+    def test_send_registration_email(self, mock_post):
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"message": "Email sent successfully"}
+        mock_post.return_value = mock_response
+
+        success, response = self.email_service.send_registration_email(
+            "test@example.com", "testuser"
+        )
+        self.assertTrue(success)
+        self.assertEqual(response, {"message": "Email sent successfully"})
+
+    @patch("trade_journal.users.email_service.requests.post")
+    def test_send_payment_confirmation_email(self, mock_post):
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"message": "Email sent successfully"}
+        mock_post.return_value = mock_response
+
+        success, response = self.email_service.send_payment_confirmation_email(
+            "test@example.com", "testuser", 100
+        )
+        self.assertTrue(success)
+        self.assertEqual(response, {"message": "Email sent successfully"})
+
+    @patch("trade_journal.users.email_service.requests.post")
+    def test_send_password_reset_email(self, mock_post):
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"message": "Email sent successfully"}
+        mock_post.return_value = mock_response
+
+        success, response = self.email_service.send_password_reset_email(
+            "test@example.com", "testuser", "http://example.com/reset"
+        )
+        self.assertTrue(success)
+        self.assertEqual(response, {"message": "Email sent successfully"})
+
+    @patch("trade_journal.users.email_service.requests.post")
+    def test_send_email_failure(self, mock_post):
+        mock_post.side_effect = requests.exceptions.RequestException(
+            "Failed to send email"
+        )
+
+        success, response = self.email_service.send_registration_email(
+            "test@example.com", "testuser"
+        )
+        self.assertFalse(success)
+        self.assertIn("Failed to send email", response)
+
+    def test_missing_api_key(self):
+        with self.assertRaises(ImproperlyConfigured):
+            settings.configure(BREVO_API_KEY=None)
+            BrevoEmailService()

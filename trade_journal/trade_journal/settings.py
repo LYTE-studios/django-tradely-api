@@ -200,7 +200,7 @@ SIMPLE_JWT = {
 MIN_GAIN_THRESHOLD = 0.02
 
 # Brevo API Configuration
-BREVO_API_KEY = "brevo_api_key"
+BREVO_API_KEY = "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"
 EMAIL_SENDER_NAME = "Tradely"
 EMAIL_SENDER_ADDRESS = "hello@tradely.io"
 

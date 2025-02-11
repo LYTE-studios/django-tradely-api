@@ -10,6 +10,7 @@ from .email_service import get_dynamic_email_backend
 from .models import Email
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentIntentSerializer
+from users.email_service import brevo_email_service
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -97,8 +98,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     amount=serializer.validated_data["amount"],
                     currency=currency,
                 )
-                self.send_payment_confirmation_email(
-                    payment, service_name, api_key, api_secret
+                brevo_email_service.send_payment_confirmation_email(
+                    payment.user.email, payment.user.username, payment.amount
                 )
 
                 return Response(
@@ -137,30 +138,32 @@ class PaymentViewSet(viewsets.ModelViewSet):
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
             payment.status = "succeeded"
             payment.save()
-            self.send_payment_confirmation_email(
-                payment, service_name, api_key, api_secret
+            brevo_email_service.send_payment_confirmation_email(
+                payment.user.email, payment.user.username, payment.amount
             )
         elif event["type"] == "payment_intent.payment_failed":
             payment_intent = event["data"]["object"]
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent["id"])
             payment.status = "failed"
             payment.save()
-            self.send_payment_failure_email(payment, service_name, api_key, api_secret)
+            brevo_email_service.send_payment_failure_email(
+                payment.user.email, payment.user.username, payment.amount
+            )
 
         return Response(status=status.HTTP_200_OK)
 
-    def send_payment_confirmation_email(
-        self, payment, service_name, api_key, api_secret
-    ):
-        subject = "Payment Confirmation"
-        message = f"Your payment of {payment.amount} {payment.currency} has been successfully processed."
-        send_email_provider(
-            service_name, api_key, api_secret, subject, message, [payment.user.email]
-        )
-
-    def send_payment_failure_email(self, payment, service_name, api_key, api_secret):
-        subject = "Payment Failed"
-        message = f"Your payment of {payment.amount} {payment.currency} has failed. Please try again or contact support."
-        send_email_provider(
-            service_name, api_key, api_secret, subject, message, [payment.user.email]
-        )
+    # def send_payment_confirmation_email(
+    #     self, payment, service_name, api_key, api_secret
+    # ):
+    #     subject = "Payment Confirmation"
+    #     message = f"Your payment of {payment.amount} {payment.currency} has been successfully processed."
+    #     send_email_provider(
+    #         service_name, api_key, api_secret, subject, message, [payment.user.email]
+    #     )
+    #
+    # def send_payment_failure_email(self, payment, service_name, api_key, api_secret):
+    #     subject = "Payment Failed"
+    #     message = f"Your payment of {payment.amount} {payment.currency} has failed. Please try again or contact support."
+    #     send_email_provider(
+    #         service_name, api_key, api_secret, subject, message, [payment.user.email]
+    #     )

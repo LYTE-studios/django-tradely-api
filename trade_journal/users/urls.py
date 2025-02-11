@@ -10,7 +10,7 @@ from .views import (
     AccountsSummaryView,
     RefreshAllAccountsView,
     UploadFileView,
-    UserRegisterView,
+    UserRegistrationView,
     UserLoginView,
     TradeAccountViewSet,
     ComprehensiveTradeStatisticsView,
@@ -22,6 +22,8 @@ from .views import (
     DeleteAccount,
     AuthenticateAccountView,
     ToggleUserAccountStatus,
+    PasswordResetView,
+    PasswordChangeConfirmView,
 )
 
 # Create a router for the viewsets
@@ -32,9 +34,15 @@ router.register(r"trade-notes", TradeNoteViewSet, basename="trade-notes")
 urlpatterns = [
     path("", include(router.urls)),
     # Authentication routes
-    path("register/", UserRegisterView.as_view(), name="register"),
+    path("register/", UserRegistrationView.as_view(), name="register"),
     path("login/", UserLoginView.as_view(), name="login"),
     path("profile/", UserProfileView.as_view(), name="profile"),
+    path("password-reset/", PasswordResetView.as_view(), name="password-reset"),
+    path(
+        "reset-password/",
+        PasswordChangeConfirmView.as_view(),
+        name="password-change-confirm",
+    ),
     path("hello-there/", HelloThereView.as_view(), name="hello-there"),
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

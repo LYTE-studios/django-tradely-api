@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import TradeAccount, ManualTrade, TradeNote
-from decimal import Decimal
+from .models import CustomUser
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
 
 User = get_user_model()
 
@@ -26,18 +28,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Email not allowed")
 
-        user = User(**validated_data)
-        user.set_password(validated_data["password"])
-        user.save()
-        return user
-
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
-
-
-from .models import CustomUser
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -71,6 +65,34 @@ class TradeAccountSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Balance cannot be negative.")
         return value
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        try:
+            uid = urlsafe_base64_decode(data["uid"]).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError("Invalid UID")
+
+        if not default_token_generator.check_token(user, data["token"]):
+            raise serializers.ValidationError("Invalid token")
+
+        return data
+
+    def save(self):
+        uid = urlsafe_base64_decode(self.validated_data["uid"]).decode()
+        user = User.objects.get(pk=uid)
+        user.set_password(self.validated_data["new_password"])
+        user.save()
 
 
 # class ManualTradeSerializer(serializers.ModelSerializer):
