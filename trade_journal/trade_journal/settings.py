@@ -138,11 +138,11 @@ TEST_RUNNER = "django.test.runner.DiscoverRunner"
 from .my_secrets import database
 
 DATABASES = {
-    'default': database,
-    # "default": {
-    #     "ENGINE": "django.db.backends.sqlite3",
-    #     "NAME": BASE_DIR / "db.sqlite3",
-    # }
+    # 'default': database,
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
 }
 
 
@@ -200,7 +200,7 @@ SIMPLE_JWT = {
 MIN_GAIN_THRESHOLD = 0.02
 
 # Brevo API Configuration
-BREVO_API_KEY = "API_KEY"
+BREVO_API_KEY = "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"
 EMAIL_SENDER_NAME = "Tradely"
 EMAIL_SENDER_ADDRESS = "hello@tradely.io"
 
