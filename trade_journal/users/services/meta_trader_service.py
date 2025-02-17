@@ -223,34 +223,28 @@ class MetaTraderService:
     @staticmethod
     async def authenticate(server, username, password, platform) -> str:
         try:
-            api = MetaApi(meta_api_key)
-
-            account = await api.metatrader_account_api.create_account(
-                {
-                    "type": "cloud",
-                    "login": username,
-                    "name": uuid.uuid4().hex,
-                    "password": password,
-                    "server": server,
-                    "platform": platform,
-                    "magic": 1000,
-                }
-            )
-
-            await account.wait_deployed()
-
-            await account.enable_metastats_api()
-
-            await account.create_replica(
-                {
-                    "region": "new-york",
-                    "magic": 1000,
-                }
-            )
-
-            print(f"Successfully created MetaApi account: {account.id}")
-
-            return account.id, account.base_currency
+            try:
+                base_url = settings.TERMINAL_SERVER_URL
+                response = await requests.post(
+                    base_url + "/api/mt5/connect/", json={
+                        "account": username,
+                        "password": password,
+                        "server": server,
+                    }
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    if data["status"] == "success":
+                        account_info = data["account_info"]
+                        return account_info["login"], account_info["currency"]
+                else:
+                    print(
+                        f"Error fetching trades for account {username}: {response.text}"
+                    )
+                    return None, None
+            except Exception as e:
+                print(f"Error fetching trades for account {username}: {str(e)}")
+                return None, None
 
         except Exception as meta_error:
             print(f"MetaApi create_account failed: {str(meta_error)}")
