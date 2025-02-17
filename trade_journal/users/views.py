@@ -383,24 +383,46 @@ class AccountBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get the from and to dates from the request query parameters
-        from_date = request.query_params.get("from")
-        until_date = request.query_params.get("to")
+        try:
+            # Get the from and to dates from the request query parameters
+            from_date = request.query_params.get("from")
+            until_date = request.query_params.get("to")
 
-        # Parse datetime parameters
-        parsed_from_date = None
-        parsed_until_date = None
+            # Parse datetime parameters
+            parsed_from_date = None
+            parsed_until_date = None
+            previous_from_date = None
+            previous_until_date = None
 
-        if from_date and until_date:
-            parsed_from_date = timezone.datetime.strptime(from_date, "%Y-%m-%d")
-            parsed_until_date = timezone.datetime.strptime(until_date, "%Y-%m-%d")
+            if from_date and until_date:
+                parsed_from_date = timezone.datetime.strptime(from_date, "%Y-%m-%d")
+                parsed_until_date = timezone.datetime.strptime(until_date, "%Y-%m-%d")
+                # Calculate the previous date range
+                delta = parsed_until_date - parsed_from_date
+                previous_from_date = parsed_from_date - delta
+                previous_until_date = parsed_from_date - timezone.timedelta(days=1)
 
-        # Fetch trades using the service method with optional datetime filtering
-        balance_chart = TradeService.get_account_balance_chart(
-            request.user, from_date=parsed_from_date, to_date=parsed_until_date
-        )
+            # Fetch trades using the service method with optional datetime filtering
+            current_balance_chart = TradeService.get_account_balance_chart(
+                request.user, from_date=parsed_from_date, to_date=parsed_until_date
+            )
 
-        return Response(balance_chart)
+            previous_balance_chart = TradeService.get_account_balance_chart(
+                request.user, from_date=previous_from_date, to_date=previous_until_date
+            )
+
+            return Response(
+                {
+                    "account_balance_chart": current_balance_chart,
+                    "previous_account_balance_chart": previous_balance_chart,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Error fetching account balance: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class LeaderBoardView(APIView):
