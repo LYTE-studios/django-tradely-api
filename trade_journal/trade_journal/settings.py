@@ -64,9 +64,10 @@ MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 
 
 ALLOWED_HOSTS = [
-    # 'localhost',
-    # '127.0.0.1',
-    # "api.tradely.lytestudios.be"
+    'localhost',
+    '127.0.0.1',
+    "api.tradely.lytestudios.be",
+    "staging.api.tradely.lytestudios.be",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
