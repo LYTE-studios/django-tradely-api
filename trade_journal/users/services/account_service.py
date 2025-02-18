@@ -112,10 +112,10 @@ class AccountService:
                     )
         except Exception as e:
             print(f"Error authenticating account: {str(e)}")
-            raise Exception(f"Failed to authenticate accoun: {str(e)}t")
+            raise Exception(f"Failed to authenticate account: {str(e)}")
 
         if not account_id:
-            raise Exception("Account not found")
+            raise Exception("Something went wrong..")
 
         try:
             trade_account, created = TradeAccount.objects.update_or_create(
