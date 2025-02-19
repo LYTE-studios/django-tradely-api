@@ -61,6 +61,10 @@ class TradeService:
         """
         Fetches all trades from different sources and normalizes them
         """
+        from . import AccountService
+        
+        AccountService.check_refresh(user)
+
         trades = ManualTrade.objects.filter(account__user=user)
 
         # Get manual trades

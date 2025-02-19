@@ -58,17 +58,13 @@ class AuthenticateAccountView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            AccountService.authenticate(
-                username, password, server_name, platform, account_name, request.user
-            )
-            return Response(
-                {"message": "Account authenticated."}, status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        AccountService.authenticate(
+            username, password, server_name, platform, account_name, request.user
+        )
+        
+        return Response(
+            {"message": "Account authenticated."}, status=status.HTTP_200_OK
+        )
 
 
 class DeleteAccount(APIView):

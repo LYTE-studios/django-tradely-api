@@ -4,7 +4,6 @@ from ..models import ManualTrade, TradeAccount
 
 logger = logging.getLogger(__name__)
 from django.utils import timezone
-from asgiref.sync import sync_to_async
 from ..models import Platform
 
 
@@ -28,36 +27,36 @@ class AccountService:
     def update_account_cache(account: TradeAccount):
         account.balance = AccountService.calculate_account_balance(account)
 
-        account.cached_until = timezone.now() + timezone.timedelta(minutes=30)
+        account.cached_until = timezone.now() + timezone.timedelta(seconds=10)
         account.cached_at = timezone.now()
 
         account.save()
 
     @staticmethod
-    async def refresh_account(account: TradeAccount):
+    def refresh_account(account: TradeAccount):
         from .meta_trader_service import MetaTraderService
 
         match account.platform:
             case Platform.meta_trader_4 | Platform.meta_trader_5:
-                await MetaTraderService().refresh_account(account)
+                MetaTraderService.refresh_account(account)
 
-        await sync_to_async(AccountService.update_account_cache)(account)
+        AccountService.update_account_cache(account)
 
     @staticmethod
-    async def check_refresh(user, force_refresh=False):
+    def check_refresh(user, force_refresh=False):
         def needs_refresh(account: TradeAccount) -> bool:
             if not account.cached_at or not account.cached_until:
                 return True
 
             return account.cached_until <= timezone.now()
 
-        accounts = await sync_to_async(TradeAccount.objects.filter)(user=user)
+        accounts = TradeAccount.objects.filter(user=user)
 
-        async for account in accounts:
+        for account in accounts:
             if not force_refresh and not needs_refresh(account):
                 continue
 
-            await AccountService.refresh_account(account)
+            AccountService.refresh_account(account)
 
     @staticmethod
     def authenticate(
@@ -96,23 +95,19 @@ class AccountService:
             )
             return trade_account
 
-        try:
-            match platform:
-                case Platform.meta_trader_4:
-                    from .meta_trader_service import MetaTraderService
+        match platform:
+            case Platform.meta_trader_4:
+                from .meta_trader_service import MetaTraderService
 
-                    account_id, currency = MetaTraderService.authenticate_sync(
-                        server, username, password, "mt4"
-                    )
-                case Platform.meta_trader_5:
-                    from .meta_trader_service import MetaTraderService
+                account_id, currency = MetaTraderService.authenticate_sync(
+                    server, username, password, "mt4"
+                )
+            case Platform.meta_trader_5:
+                from .meta_trader_service import MetaTraderService
 
-                    account_id, currency = MetaTraderService.authenticate_sync(
-                        server, username, password, "mt5"
-                    )
-        except Exception as e:
-            print(f"Error authenticating account: {str(e)}")
-            raise Exception(f"Failed to authenticate account: {str(e)}")
+                account_id, currency = MetaTraderService.authenticate_sync(
+                    server, username, password, "mt5"
+                )
 
         if not account_id:
             raise Exception("Something went wrong..")
