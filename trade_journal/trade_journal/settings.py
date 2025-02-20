@@ -62,13 +62,7 @@ STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 
-
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    "api.tradely.lytestudios.be",
-    "staging.api.tradely.lytestudios.be",
-]
+ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
     # 'https://api.tradely.lytestudios.be',
@@ -212,4 +206,4 @@ STRIPE_WEBHOOK_SECRET = "your_stripe_webhook_secret"
 # Exchange rate cache duration in minutes
 EXCHANGE_RATE_CACHE_DURATION = 30  # in minutes
 
-TERMINAL_SERVER_URL = os.getenv("TERMINAL_SERVER_URL", "http://localhost:8000")
+TERMINAL_SERVER_URL = os.getenv("TERMINAL_SERVER_URL", "https://trading-terminal.lytestudios.be")

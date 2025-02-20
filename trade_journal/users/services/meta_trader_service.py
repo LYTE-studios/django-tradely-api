@@ -242,39 +242,21 @@ class MetaTraderService:
             return []
 
     @staticmethod
-    async def authenticate(server, username, password, platform) -> str:
-        try:
-            try:
-                base_url = settings.TERMINAL_SERVER_URL
-                response = await requests.post(
-                    base_url + "/api/mt5/connect/", json={
-                        "account": username,
-                        "password": password,
-                        "server": server,
-                    }
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data["status"] == "success":
-                        account_info = data["account_info"]
-                        return account_info["login"], account_info["currency"]
-                else:
-                    print(
-                        f"Error fetching trades for account {username}: {response.text}"
-                    )
-                    return None, None
-            except Exception as e:
-                print(f"Error fetching trades for account {username}: {str(e)}")
-                return None, None
-
-        except Exception as meta_error:
-            print(f"MetaApi create_account failed: {str(meta_error)}")
-            print(f"Full Error Object: {vars(meta_error)}")
-
-            raise meta_error
-
-    @staticmethod
-    def authenticate_sync(server, username, password, platform):
-        return async_to_sync(MetaTraderService.authenticate)(
-            server, username, password, platform
+    def authenticate_sync(server, username, password, platform) -> str:
+        base_url = settings.TERMINAL_SERVER_URL
+        response = requests.post(
+            base_url + "/api/mt5/connect/", json={
+                "account": username,
+                "password": password,
+                "server": server,
+            }
         )
+        if response.status_code == 200:
+            data = response.json()
+            if data["status"] == "success":
+                account_info = data["account_info"]
+                return account_info["login"], account_info["currency"]
+        else:
+            error = "{}: {}".format(str(response.status_code), response.json())
+            print(error)
+            raise Exception(error)
