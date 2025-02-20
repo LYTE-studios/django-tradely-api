@@ -205,7 +205,28 @@ class MetaTraderService:
         try:
             base_url = settings.TERMINAL_SERVER_URL
             response = await requests.post(
-                base_url + "/api/get_trades/", json={"account_id": account_id}
+                base_url + "/api/mt5/get_trades/", json={"account_id": account_id}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                orders = data["orders"]
+                return orders
+            else:
+                print(
+                    f"Error fetching trades for account {account_id}: {response.text}"
+                )
+                return []
+        except Exception as e:
+            print(f"Error fetching trades for account {account_id}: {str(e)}")
+            return []
+
+
+    @staticmethod
+    async def fetch_history_terminal(account_id: str):
+        try:
+            base_url = settings.TERMINAL_SERVER_URL
+            response = await requests.post(
+                base_url + "/api/mt5/get_history/", json={"account_id": account_id}
             )
             if response.status_code == 200:
                 data = response.json()
