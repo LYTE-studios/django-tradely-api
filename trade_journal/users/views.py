@@ -61,7 +61,7 @@ class AuthenticateAccountView(APIView):
         AccountService.authenticate(
             username, password, server_name, platform, account_name, request.user
         )
-        
+
         return Response(
             {"message": "Account authenticated."}, status=status.HTTP_200_OK
         )

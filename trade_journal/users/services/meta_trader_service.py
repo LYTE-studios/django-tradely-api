@@ -9,48 +9,6 @@ logger = logging.getLogger(__name__)
 
 class MetaTraderService:
 
-    def __init__(self):
-        self._meta_api = None
-
-    async def get_meta_api(self):
-        if not self._meta_api:
-            self._meta_api = MetaApi(meta_api_key)
-        return self._meta_api
-
-    async def refresh_account(self, account):
-        try:
-            account_id = account.account_id
-            meta_trades = await self.fetch_trades_terminal(account_id)
-
-            await self.update_trades(meta_trades, account)
-
-            meta_trades = await self.fetch_history_terminal(account_id)
-
-            await self.update_trades(meta_trades, account)
-            # meta_api = await self.get_meta_api()
-            # meta_account = await meta_api.metatrader_account_api.get_account(
-            #     account.account_id
-            # )
-
-            # await meta_account.deploy()
-            # await meta_account.wait_deployed()
-            #
-            # # Fetch and update trades
-            # meta_trades = await self.get_meta_trades(account.account_id)
-            #
-            # await self.update_trades(meta_trades, account)
-            #
-            # # get current open trade
-            # meta_open_trades = await self.get_meta_open_trades(account.account_id)
-            #
-            # await self.update_trades(meta_open_trades, account, True)
-            #
-            # await meta_account.undeploy()
-
-        except Exception as e:
-            print(f"Error refreshing account {account.account_id}: {str(e)}")
-            raise
-
     @staticmethod
     def refresh_account(account: TradeAccount):
         # Fetch and update trades
@@ -72,7 +30,7 @@ class MetaTraderService:
             if not is_aware(ret):
                 ret = make_aware(ret)
             return ret
-        
+
         for trade in meta_trades:
             if trade["type"] == "DEAL_TYPE_BALANCE":
                 ManualTrade.objects.update_or_create(
@@ -130,9 +88,10 @@ class MetaTraderService:
 
     @staticmethod
     def fetch_trades_terminal(account_id: str):
-        base_url = settings.TERMINAL_SERVER_URL
-        response = requests.post(
-            base_url + "/api/mt5/get_trades/", json={"account_id": account_id}
+        try:
+            base_url = settings.TERMINAL_SERVER_URL
+            response = requests.post(
+                base_url + "/api/mt5/get_trades/", json={"account_id": account_id}
             )
             if response.status_code == 200:
                 data = response.json()
@@ -146,23 +105,6 @@ class MetaTraderService:
         except Exception as e:
             print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
-
-    @staticmethod
-    async def fetch_history_terminal(account_id: str):
-        try:
-            base_url = settings.TERMINAL_SERVER_URL
-            response = await requests.post(
-                base_url + "/api/mt5/get_history/", json={"account_id": account_id}
-        )
-        if response.status_code == 200:
-            data = response.json()
-            logger.debug(data)
-
-            return data["orders"]
-        else:
-            error = "{}: {}".format(str(response.status_code), response.json())
-            logger.error(error)
-            raise Exception(error)
 
     @staticmethod
     def authenticate_sync(server, username, password, platform) -> str:
