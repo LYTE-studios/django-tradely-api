@@ -14,6 +14,10 @@ class MetaTraderService:
         # Fetch and update trades
         meta_trades = MetaTraderService.fetch_trades_terminal(account.account_id)
 
+        # If there's nothing to iterate over, return None
+        if not meta_trades:
+            return
+
         MetaTraderService.update_trades(meta_trades, account)
 
     @staticmethod
@@ -26,7 +30,7 @@ class MetaTraderService:
             if not is_aware(ret):
                 ret = make_aware(ret)
             return ret
-
+        
         for trade in meta_trades:
             if trade["type"] == "DEAL_TYPE_BALANCE":
                 ManualTrade.objects.update_or_create(
@@ -90,11 +94,12 @@ class MetaTraderService:
         )
         if response.status_code == 200:
             data = response.json()
-            orders = data["orders"]
-            return orders
+            logger.debug(data)
+
+            return data["orders"]
         else:
             error = "{}: {}".format(str(response.status_code), response.json())
-            print(error)
+            logger.error(error)
             raise Exception(error)
 
     @staticmethod
@@ -111,8 +116,8 @@ class MetaTraderService:
             data = response.json()
             if data["status"] == "success":
                 account_info = data["account_info"]
-                return account_info[0], "USD"
+                return account_info["login"], account_info["currency"]
         else:
             error = "{}: {}".format(str(response.status_code), response.json())
-            print(error)
+            logger.error(error)
             raise Exception(error)
