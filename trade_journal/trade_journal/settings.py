@@ -133,7 +133,7 @@ TEST_RUNNER = "django.test.runner.DiscoverRunner"
 from .my_secrets import database
 
 DATABASES = {
-    'default': database,
+    "default": database,
     # "default": {
     #     "ENGINE": "django.db.backends.sqlite3",
     #     "NAME": BASE_DIR / "db.sqlite3",
@@ -206,4 +206,6 @@ STRIPE_WEBHOOK_SECRET = "your_stripe_webhook_secret"
 # Exchange rate cache duration in minutes
 EXCHANGE_RATE_CACHE_DURATION = 30  # in minutes
 
-TERMINAL_SERVER_URL = os.getenv("TERMINAL_SERVER_URL", "https://trading-terminal.lytestudios.be")
+TERMINAL_SERVER_URL = os.getenv(
+    "TERMINAL_SERVER_URL", "https://trading-terminal.lytestudios.be"
+)

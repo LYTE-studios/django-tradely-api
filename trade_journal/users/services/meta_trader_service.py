@@ -26,25 +26,33 @@ class MetaTraderService:
 
     async def refresh_account(self, account):
         try:
-            meta_api = await self.get_meta_api()
-            meta_account = await meta_api.metatrader_account_api.get_account(
-                account.account_id
-            )
-
-            await meta_account.deploy()
-            await meta_account.wait_deployed()
-
-            # Fetch and update trades
-            meta_trades = await self.get_meta_trades(account.account_id)
+            account_id = account.account_id
+            meta_trades = await self.fetch_trades_terminal(account_id)
 
             await self.update_trades(meta_trades, account)
 
-            # get current open trade
-            meta_open_trades = await self.get_meta_open_trades(account.account_id)
+            meta_trades = await self.fetch_history_terminal(account_id)
 
-            await self.update_trades(meta_open_trades, account, True)
+            await self.update_trades(meta_trades, account)
+            # meta_api = await self.get_meta_api()
+            # meta_account = await meta_api.metatrader_account_api.get_account(
+            #     account.account_id
+            # )
 
-            await meta_account.undeploy()
+            # await meta_account.deploy()
+            # await meta_account.wait_deployed()
+            #
+            # # Fetch and update trades
+            # meta_trades = await self.get_meta_trades(account.account_id)
+            #
+            # await self.update_trades(meta_trades, account)
+            #
+            # # get current open trade
+            # meta_open_trades = await self.get_meta_open_trades(account.account_id)
+            #
+            # await self.update_trades(meta_open_trades, account, True)
+            #
+            # await meta_account.undeploy()
 
         except Exception as e:
             print(f"Error refreshing account {account.account_id}: {str(e)}")
@@ -220,7 +228,6 @@ class MetaTraderService:
             print(f"Error fetching trades for account {account_id}: {str(e)}")
             return []
 
-
     @staticmethod
     async def fetch_history_terminal(account_id: str):
         try:
@@ -245,11 +252,12 @@ class MetaTraderService:
     def authenticate_sync(server, username, password, platform) -> str:
         base_url = settings.TERMINAL_SERVER_URL
         response = requests.post(
-            base_url + "/api/mt5/connect/", json={
+            base_url + "/api/mt5/connect/",
+            json={
                 "account": username,
                 "password": password,
                 "server": server,
-            }
+            },
         )
         if response.status_code == 200:
             data = response.json()
