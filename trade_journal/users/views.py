@@ -6,8 +6,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import AccessToken
 from .services import TradeService, AccountService
-from asgiref.sync import async_to_sync
-import asyncio
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from .email_service import brevo_email_service
@@ -26,12 +24,6 @@ from django.contrib.auth.tokens import default_token_generator
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-import platform
-
-if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 
 class HelloThereView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -437,11 +429,8 @@ class RefreshAllAccountsView(APIView):
     def post(self, request, *args, **kwargs):
         force_refresh = request.data.get("force_refresh", False)
 
-        # Directly call the asynchronous function using async_to_sync
-        async_to_sync(AccountService.check_refresh)(
-            request.user, force_refresh=force_refresh
-        )
-
+        AccountService.check_refresh(request.user, force_refresh=force_refresh)
+        
         return Response({"message": "Refresh complete"}, status=status.HTTP_200_OK)
 
 
