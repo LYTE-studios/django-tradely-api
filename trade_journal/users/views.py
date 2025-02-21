@@ -408,10 +408,11 @@ class AccountBalanceView(APIView):
             )
 
             return Response(
-                {
-                    "account_balance_chart": current_balance_chart,
-                    "previous_account_balance_chart": previous_balance_chart,
-                },
+                current_balance_chart,
+                # {
+                #     "account_balance_chart": current_balance_chart,
+                #     "previous_account_balance_chart": previous_balance_chart,
+                # },
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
