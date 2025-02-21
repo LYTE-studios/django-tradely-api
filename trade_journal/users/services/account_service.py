@@ -88,7 +88,6 @@ class AccountService:
                 defaults={
                     "credentials": base_credentials,
                     "account_name": account_name,
-                    "status": "active",
                     "platform": platform,
                     "currency": existing_account.currency,
                 },
@@ -108,6 +107,12 @@ class AccountService:
                 account_id, currency = MetaTraderService.authenticate_sync(
                     server, username, password, "mt5"
                 )
+            case Platform.c_trader:
+                from .c_trader_service import CTraderService
+
+                account_id, currency = CTraderService.authenticate_sync(
+                    server, username, password
+                )
 
         if not account_id:
             raise Exception("Something went wrong..")
@@ -118,9 +123,10 @@ class AccountService:
                 user=user,
                 defaults={
                     "account_name": account_name,
-                    "status": "active",
                     "platform": platform,
                     "currency": currency,
+                    "server": server,
+                    "password": password,
                 },
             )
 

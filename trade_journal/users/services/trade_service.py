@@ -156,13 +156,10 @@ class TradeService:
         return balance_chart
 
     @staticmethod
-    def get_all_accounts(user, status=None, disabled=None) -> List[TradeAccount]:
+    def get_all_accounts(user, disabled=None) -> List[TradeAccount]:
 
         accounts = TradeAccount.objects.filter(user=user)
-
-        if status:
-            accounts = accounts.filter(status=status)
-
+        
         if disabled is not None:
             accounts = accounts.filter(disabled=disabled)
 

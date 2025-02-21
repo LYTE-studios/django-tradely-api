@@ -26,12 +26,6 @@ class ExchangeRate(models.Model):
 
 # -- Trade specific --
 
-
-class AccountStatus(models.TextChoices):
-    active = "Active"
-    inactive = "Inactive"
-
-
 class Platform(models.TextChoices):
     meta_trader_4 = "MetaTrader4"
     meta_trader_5 = "MetaTrader5"
@@ -51,22 +45,27 @@ class TradeAccount(models.Model):
         on_delete=models.CASCADE,
         related_name="trade_accounts",
     )
+
+    server = models.CharField(max_length=255, null=True)
     account_id = models.CharField(max_length=255, null=True)
+    password = models.CharField(max_length=255, null=True)
+
     account_name = models.CharField(max_length=255, null=True)
+    currency = models.CharField(max_length=10, null=True, default="USD")
+    
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    platform = models.CharField(
+        max_length=64, choices=Platform.choices, default=Platform.manual
+    )
+
+    credentials = models.CharField(max_length=256, null=True)
+    disabled = models.BooleanField(default=False)
+
     cached_at = models.DateTimeField(null=True)
     cached_until = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    platform = models.CharField(
-        max_length=64, choices=Platform.choices, default=Platform.manual
-    )
-    status = models.CharField(
-        max_length=64, choices=AccountStatus.choices, default=AccountStatus.active
-    )
-    credentials = models.CharField(max_length=256, null=True)
-    currency = models.CharField(max_length=10, null=True, default="USD")
-    disabled = models.BooleanField(default=False)
 
     def to_dict(self):
         return {
@@ -77,7 +76,6 @@ class TradeAccount(models.Model):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "cached_until": self.cached_until,
-            "status": self.status,
             "platform": self.platform,
             "currency": self.currency,
             "disabled": self.disabled,

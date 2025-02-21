@@ -49,14 +49,12 @@ class TradeAccountSerializer(serializers.ModelSerializer):
             "balance",
             "created_at",
             "updated_at",
-            "status",
             "platform",
         ]
         read_only_fields = [
             "id",
             "created_at",
             "updated_at",
-            "status",
             "platform",
             "disabled",
         ]
