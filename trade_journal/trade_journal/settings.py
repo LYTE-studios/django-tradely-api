@@ -206,9 +206,7 @@ STRIPE_WEBHOOK_SECRET = "your_stripe_webhook_secret"
 # Exchange rate cache duration in minutes
 EXCHANGE_RATE_CACHE_DURATION = 30  # in minutes
 
-TERMINAL_SERVER_URL = os.getenv(
-    "TERMINAL_SERVER_URL", "https://trading-terminal.lytestudios.be"
-)
+TERMINAL_SERVER_URL = "https://trading-terminal.lytestudios.be"
 
 LOGGING = {
     "version": 1,
