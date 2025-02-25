@@ -22,7 +22,6 @@ class MetaTraderService:
 
     @staticmethod
     def update_trades(meta_trades, account, active=False):
-        from django.utils.dateparse import parse_datetime
         from django.utils.timezone import is_aware, make_aware
 
         def get_aware_datetime(date_str):
@@ -44,45 +43,72 @@ class MetaTraderService:
                         "close_time": get_aware_datetime(trade["time"]),
                         "is_top_up": True,
                         "active": active,
+                        "volume": trade["volume"],
                     },
                 )
                 continue
             else:
-                trade_type = None
+                if "entry" in trade:
+                    trade_type = None
 
-                if trade["type"] == 0:
-                    trade_type = TradeType.sell
-                elif trade["type"] == 1:
-                    trade_type = TradeType.buy
+                    if trade["type"] == 0:
+                        trade_type = TradeType.sell
+                    elif trade["type"] == 1:
+                        trade_type = TradeType.buy
 
-                if trade["entry"] == 0:
+                    if trade["entry"] == 0:
+                        ManualTrade.objects.update_or_create(
+                            account=account,
+                            exchange_id=str(trade["position_id"]),
+                            defaults={
+                                "trade_type": trade_type,
+                                "symbol": trade["symbol"],
+                                "quantity": trade["volume"],
+                                "volume": trade["volume"],
+                                "open_price": trade["price"],
+                                "open_time": get_aware_datetime(trade["time_msc"]),
+                                "active": active,
+                            },
+                        )
+
+                    if trade["entry"] == 1:
+                        ManualTrade.objects.update_or_create(
+                            account=account,
+                            exchange_id=str(trade["position_id"]),
+                            defaults={
+                                "trade_type": trade_type,
+                                "symbol": trade["symbol"],
+                                "quantity": trade["volume"],
+                                "volume": trade["volume"],
+                                "close_price": trade["price"],
+                                "profit": trade["profit"],
+                                "gain": 0,
+                                "close_time": get_aware_datetime(trade["time_msc"]),
+                                "active": active,
+                            },
+                        )
+                else:
+                    trade_type = None
+
+                    if trade["type"] == 3:
+                        trade_type = TradeType.sell
+                    elif trade["type"] == 2:
+                        trade_type = TradeType.buy
+
                     ManualTrade.objects.update_or_create(
                         account=account,
                         exchange_id=str(trade["position_id"]),
                         defaults={
                             "trade_type": trade_type,
                             "symbol": trade["symbol"],
-                            "quantity": trade["volume"],
-                            "volume": trade["volume"],
-                            "open_price": trade["price"],
-                            "open_time": get_aware_datetime(trade["time"]),
-                            "active": active,
-                        },
-                    )
-
-                if trade["entry"] == 1:
-                    ManualTrade.objects.update_or_create(
-                        account=account,
-                        exchange_id=str(trade["position_id"]),
-                        defaults={
-                            "trade_type": trade_type,
-                            "symbol": trade["symbol"],
-                            "quantity": trade["volume"],
-                            "volume": trade["volume"],
-                            "close_price": trade["price"],
-                            "profit": trade["profit"],
+                            "quantity": trade["volume_current"],
+                            "volume": trade["volume_current"],
+                            "open_price": trade["price_open"],
+                            "close_price": trade["price_stoplimit"],
+                            "profit": 0,
                             "gain": 0,
-                            "close_time": get_aware_datetime(trade["time"]),
+                            "open_time": get_aware_datetime(trade["time_setup_msc"]),
+                            "close_time": get_aware_datetime(trade["time_done_msc"]),
                             "active": active,
                         },
                     )
