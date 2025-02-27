@@ -26,7 +26,7 @@ class MetaTraderService:
 
         def get_aware_datetime(date_str):
             from datetime import datetime
-            ret = datetime.fromtimestamp(date_str)
+            ret = datetime.fromtimestamp(int(date_str) / 1000)
             if not is_aware(ret):
                 ret = make_aware(ret)
             return ret
